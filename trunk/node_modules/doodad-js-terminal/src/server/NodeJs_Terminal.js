@@ -37,7 +37,7 @@
 			type: null,
 			version: '0d',
 			namespaces: ['Ansi'],
-			dependencies: ['Doodad', 'Doodad.IO', 'Doodad.NodeJs', 'Doodad.NodeJs.IO'],
+			dependencies: ['Doodad', 'Doodad.IO', 'Doodad.NodeJs', 'Doodad.NodeJs.IO', 'Doodad.Modules'],
 			
 			create: function create(root, /*optional*/_options) {
 				"use strict";
@@ -46,6 +46,7 @@
 					types = doodad.Types,
 					tools = doodad.Tools,
 					namespaces = doodad.Namespaces,
+					modules = doodad.Modules,
 					config = tools.Config,
 					interfaces = doodad.Interfaces,
 					mixIns = doodad.MixIns,
@@ -1124,9 +1125,10 @@
 				};
 				
 				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
-					const configPath = tools.Path.parse(module.filename),
-						path = tools.options.hooks.pathParser('./res/nodejsTerminal.json');
-					return config.loadFile(path, {async: true, watch: true, configPath: configPath, encoding: 'utf8'}, [__Internal__.parseSettings, callback]);
+					return modules.locate('doodad-js-terminal').then(function (location) {
+						const path = tools.options.hooks.pathParser(global.process && root.startupOptions.settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
+						return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf8' }, [__Internal__.parseSettings, callback]);
+					});
 				};
 
 				
