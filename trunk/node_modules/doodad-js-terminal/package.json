@@ -1,15 +1,16 @@
 {
   "name": "doodad-js-terminal",
-  "version": "0.1.0",
-  "description": "\"doodad-js\" Terminal",
+  "version": "0.1.1",
+  "description": "\"doodad-js\" Terminal (alpha)",
   "homepage": "https://sourceforge.net/projects/doodad-js/",
   "main": "index.js",
   "files": [
     "src",
-	"res",
-	"NodeJs_Terminal.min.js",
+    "res",
+    "NodeJs_Terminal.min.js",
     "index.js",
-	"LICENSE"
+    "README",
+    "LICENSE"
   ],
   "scripts": {
     "prepublish": "node -r \"doodad-js-make/make.js\" . make",
@@ -26,11 +27,11 @@
   },
   "repository": {
     "type": "svn",
-    "url": "https://svn.code.sf.net/p/doodad-js/code/node_modules/doodad-js-terminal/"
+    "url": "https://svn.code.sf.net/p/doodad-js/code/trunk/node_modules/doodad-js-terminal/"
   },
   "bugs": {
-    "url" : "https://sourceforge.net/p/doodad-js/tickets/",
-    "email" : "doodadjs@gmail.com"
+    "url": "https://sourceforge.net/p/doodad-js/tickets/",
+    "email": "doodadjs@gmail.com"
   },
   "dependencies": {
     "doodad-js": "^1.0.0",
