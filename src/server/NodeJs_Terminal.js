@@ -1,5 +1,5 @@
-//! REPLACE_BY("// Copyright 2015 Claude Petit, licensed under Apache License version 2.0\n")
-// dOOdad - Object-oriented programming framework with some extras
+//! REPLACE_BY("// Copyright 2016 Claude Petit, licensed under Apache License version 2.0\n")
+// dOOdad - Object-oriented programming framework
 // File: NodeJs_Terminal.js - NodeJs Terminal
 // Project home: https://sourceforge.net/projects/doodad-js/
 // Trunk: svn checkout svn://svn.code.sf.net/p/doodad-js/code/trunk doodad-js-code
@@ -8,7 +8,7 @@
 // Note: I'm still in alpha-beta stage, so expect to find some bugs or incomplete parts !
 // License: Apache V2
 //
-//	Copyright 2015 Claude Petit
+//	Copyright 2016 Claude Petit
 //
 //	Licensed under the Apache License, Version 2.0 (the "License");
 //	you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 	var global = this;
 
 	var exports = {};
-	if (global.process) {
+	if (typeof process === 'object') {
 		module.exports = exports;
 	};
 	
@@ -37,7 +37,19 @@
 			type: null,
 			version: '0d',
 			namespaces: ['Ansi'],
-			dependencies: ['Doodad', 'Doodad.IO', 'Doodad.NodeJs', 'Doodad.NodeJs.IO', 'Doodad.Modules'],
+			dependencies: [
+				'Doodad', 
+				{
+					name: 'Doodad.IO',
+					version: '0.2',
+				}, 
+				'Doodad.NodeJs', 
+				{
+					name: 'Doodad.NodeJs.IO',
+					version: '0.2',
+				},
+				'Doodad.Modules',
+			],
 			
 			create: function create(root, /*optional*/_options) {
 				"use strict";
@@ -228,15 +240,16 @@
 									ioMixIns.KeyboardInput,
 									ioMixIns.TextOutput,
 									ioInterfaces.IConsole,
+									mixIns.NodeEvents,
 				{
 					$TYPE_NAME: 'Terminal',
-					
-					options: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					
 					number: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					stdin: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					stdout: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					stderr: doodad.PUBLIC(doodad.READ_ONLY(null)),
+					
+					__listening: doodad.PROTECTED(false),
 					
 					__column: doodad.PROTECTED(0),
 					__row: doodad.PROTECTED(0),
@@ -251,14 +264,13 @@
 					__stdoutBuffer: doodad.PROTECTED(null),
 					__stderrBuffer: doodad.PROTECTED(null),
 					
-					__onResizeCallback: doodad.PROTECTED(null),
-					
 					__consoleWritesCount: doodad.PROTECTED(null),
 					__consoleWritesIntervalId: doodad.PROTECTED(null),
 					
 
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 						this._super(options);
+						
 						root.DD_ASSERT && root.DD_ASSERT(types.isInteger(number) && (number >= 0) && (number < 10), "Invalid console number.");
 						const attrs = {
 							number: number,
@@ -280,8 +292,7 @@
 						this.__stdoutBuffer = [];
 						this.__stderrBuffer = [];
 						
-						this.__onResizeCallback = new doodad.Callback(this, 'onResize');
-						this.stdout.stream.on('resize', this.__onResizeCallback);
+						this.onStreamResize.attach(this.stdout.stream);
 						this.resetPosition();
 						this.setColumns();
 						this.__consoleWritesCount = {};
@@ -294,10 +305,7 @@
 					}),
 					destroy: doodad.OVERRIDE(function destroy() {
 						this.stopListening();
-						if (this.__onResizeCallback) {
-							this.stdout.stream.removeListener('resize', this.__onResizeCallback);
-							this.__onResizeCallback = null;
-						};
+						this.onStreamResize.clear();
 						if (this.__consoleWritesIntervalId) {
 							clearInterval(this.__consoleWritesIntervalId);
 							this.__consoleWritesIntervalId = null;
@@ -334,22 +342,28 @@
 						};
 					}),
 					
+					isListening: doodad.OVERRIDE(function isListening() {
+						return this.__listening;
+					}),
 					listen: doodad.OVERRIDE(function listen(/*optional*/options) {
-						this.stopListening();
-						this.stdin.onReady.attach(this, this.__onStdInReady);
-						this.stdin.listen(options);
-						__Internal__.currentTerminal = this;
-						__Internal__.oldStdIn = io.stdin;
-						__Internal__.oldStdOut = io.stdout;
-						__Internal__.oldStdErr = io.stderr;
-						io.setStds({
-							stdin: this,
-							stdout: this,
-							stderr: this,
-						});
+						if (!this.__listening) {
+							this.__listening = true;
+							this.stdin.onReady.attach(this, this.__onStdInReady);
+							this.stdin.listen(options);
+							__Internal__.currentTerminal = this;
+							__Internal__.oldStdIn = io.stdin;
+							__Internal__.oldStdOut = io.stdout;
+							__Internal__.oldStdErr = io.stderr;
+							io.setStds({
+								stdin: this,
+								stdout: this,
+								stderr: this,
+							});
+						};
 					}),
 					stopListening: doodad.OVERRIDE(function stopListening() {
-						if (__Internal__.oldStdOut) {
+						if (this.__listening) {
+							this.__listening = false;
 							io.setStds({
 								stdin: __Internal__.oldStdIn,
 								stdout: __Internal__.oldStdOut,
@@ -416,18 +430,16 @@
 					}),
 					
 					read: doodad.OVERRIDE(function read(/*optional*/options) {
-						const offset = types.get(options, 'offset', 0),
-							count = types.get(options, 'count', 1);
+						const count = types.get(options, 'count');
 
 						if (root.DD_ASSERT) {
-							root.DD_ASSERT(types.isInteger(offset), "Invalid offset.");
-							root.DD_ASSERT(types.isInteger(count), "Invalid count.");
+							root.DD_ASSERT(types.isNothing(count) || types.isInteger(count), "Invalid count.");
 						};
 
-						if (types.get(options, 'preread', false)) {
-							return this.__stdinBuffer.slice(offset, count);
+						if (types.isNothing(count)) {
+							return this.__stdinBuffer.shift();
 						} else {
-							return this.__stdinBuffer.splice(offset, count);
+							return this.__stdinBuffer.splice(0, count);
 						};
 					}),
 
@@ -438,43 +450,48 @@
 					write: doodad.OVERRIDE(function write(ansi, /*optional*/options) {
 						ansi = types.toString(ansi);
 						
+						let data = {
+							raw: ansi,
+							options: options,
+						};
+						data = this.transform(data) || data;
+						
+						this.onWrite(new doodad.Event(data));
+						
 						const getBuffer = function getBuffer() {
 							return ((this.stderr !== this.stdout) && types.get(options, 'isError', false) ? this.__stderrBuffer : this.__stdoutBuffer);
 						};
 						
-						const buffer = getBuffer.apply(this);
+						const buffer = getBuffer.apply(this),
+							bufferSize = this.options.bufferSize,
+							callback = types.get(options, 'callback'),
+							value = data.valueOf();
 						
-						let write = function write() {
-							const ev = new doodad.Event({
-								raw: ansi,
-								options: options,
-							});
-							this.onWrite(ev);
-							ansi = ev.data.raw;
-							buffer.push(ansi);
-						};
-
-						const bufferSize = this.options.bufferSize;
-						if (buffer.length < bufferSize) {
-							write.apply(this);
-							write = null;
-						};
-						if (buffer.length >= bufferSize) {
-							if (this.options.autoFlush) {
-								this.flush(options);
-								if (getBuffer.apply(this).length > bufferSize) {
-									throw new types.BufferOverflow();
-								} else {
-									write && write.apply(this);
-								};
+						if (this.options.autoFlush) {
+							buffer.push(value);
+							if ((value === io.EOF) || (buffer.length >= bufferSize)) {
+								this.flush({
+									callback: callback,
+								});
 							} else {
-								throw new types.BufferOverflow();
+								if (callback) {
+									callback();
+								};
 							};
+						} else if (buffer.length < bufferSize) {
+							buffer.push(value);
+							if (callback) {
+								callback();
+							};
+						} else {
+							throw new types.BufferOverflow();
 						};
 					}),
 					
 					writeText: doodad.REPLACE(function writeText(text, /*optional*/options) {
-						text = nodejsTerminalAnsi.toText(text);
+						if (!types.get(options, 'raw')) {
+							text = nodejsTerminalAnsi.toText(text);
+						};
 						
 						const screenColumns = this.__columns,
 							lines = text.split(nodejsTerminalAnsi.NewLine),
@@ -530,12 +547,25 @@
 						function __flush(stream, buffer, /*optional*/callback) {
 							let ansi = '';
 							while (buffer.length) {
-								ansi += buffer.shift();
+								var value = buffer.shift();
+								if (value !== io.EOF) {
+									ansi += value;
+								};
 							};
 							stream.write(ansi, types.extend({}, options, {callback: callback}));
 						};
+						
+						const callback = types.get(options, 'callback');
+						
 						__flush(this.stdout, this.__stdoutBuffer, new doodad.Callback(this, function() {
-							__flush(this.stderr, this.__stderrBuffer);
+							__flush(this.stderr, this.__stderrBuffer, new doodad.Callback(this, function() {
+								this.onFlush(new doodad.Event({
+									options: options,
+								}));
+								if (callback) {
+									callback();
+								};
+							}));
 						}));
 					}),
 					
@@ -548,43 +578,16 @@
 							args = ["... (console writes limit reached)"];
 						};
 						if (this.__consoleWritesCount[writesName] <= this.options.writesLimit) {
-							// TODO: See if nodejs as a "format" function for that
-							const template = (args[0] + '');
-							let msg = '',
-								pos = 1,
-								isPercent = false,
-								start = 0,
-								end = 0;
-							while (end < template.length) {
-								const chr = template[end];
-								if (chr === '%') {
-									if (isPercent) {
-										msg += '%';
-										isPercent = false;
-									} else {
-										isPercent = true;
-									};
-								} else if (isPercent) {
-									const arg = args[pos++];
-									msg += template.slice(start, end - 1) + (types.isNothing(arg) ? '' : arg.toString());
-									start = end + 1;
-									isPercent = false;
-								};
-								end++;
-							};
-							if (start < template.length) {
-								msg += template.slice(start);
-							};
-							
+							const msg = nodeUtil.format.apply(nodeUtil, args)
 							
 							this.__consoleWritesCount[writesName]++;
 							
 							this.saveCursor();
 							this.write(	
-										(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X times
-										nodejsTerminalAnsi.SimpleCommands.EraseLine + 
-										nodejsTerminalAnsi.SimpleCommands.EraseBelow + 
-										nodejsTerminalAnsi.SimpleCommands.CursorHome
+								(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X times
+								nodejsTerminalAnsi.SimpleCommands.EraseLine + 
+								nodejsTerminalAnsi.SimpleCommands.EraseBelow + 
+								nodejsTerminalAnsi.SimpleCommands.CursorHome
 							);
 							options = types.extend({}, this.options, options);
 							const color = nodejsTerminalAnsi.Colors[types.get(options, name + 'Color', null)];
@@ -633,7 +636,7 @@
 						nodejsTerminalAnsi.SimpleCommands.CursorEnd = '\x1B[' + newColumns + 'G';
 					}),
 	/*
-					onResize: doodad.PROTECTED(function onResize() {
+					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize(context) {
 						const newColumns = this.stdout.stream.columns;
 						if (tools.getOS().type === 'windows') {
 							//this.__column = ((((this.__row - 1) * this.__columns) + this.__column) % newColumns);
@@ -662,7 +665,7 @@
 						};
 					}),
 	*/
-					onResize: doodad.PROTECTED(function onResize() {
+					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize() {
 						if (__Internal__.osType === 'windows') {
 							this.write(
 								nodejsTerminalAnsi.SimpleCommands.CursorScreenHome +
@@ -748,6 +751,8 @@
 					__commandIndex: doodad.PROTECTED(0),
 					__insertMode: doodad.PROTECTED(false),
 					__homeColumn: doodad.PROTECTED(1),
+					__commandsHistory: doodad.PROTECTED(null),
+					__commandsHistoryIndex: doodad.PROTECTED(-1),
 					
 					__savedHomeColumn: doodad.PROTECTED(1),
 					__savedCommandIndex: doodad.PROTECTED(0),
@@ -759,6 +764,16 @@
 					
 					// <PRB> Since ?????, the cursor behaves differently
 					__linuxPatch: doodad.PROTECTED(2),
+					
+					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
+						this._super(number, options);
+						
+						const historySize = types.getDefault(this.options, 'historySize', 500);
+						
+						if (historySize > 0) {
+							this.__commandsHistory = [];
+						};
+					}),
 					
 					printPrompt: doodad.PROTECTED(function printPrompt() {
 						this.write(
@@ -854,7 +869,7 @@
 						this.refresh();
 					}),
 
-					//onResize: doodad.OVERRIDE(function onResize() {
+					//onStreamResize: doodad.OVERRIDE(function onStreamResize(context) {
 					//	// TODO: Fix bug on Windows with "Home" and "End" erasing screen
 					//	
 					//	this._super();
@@ -871,8 +886,19 @@
 					//	};
 					//}),
 					
+					addCommandHistory: doodad.PROTECTED(function addCommandHistory(command) {
+						if (command && this.__commandsHistory) {
+							if (command !== this.__commandsHistory[0]) {
+								this.__commandsHistory.unshift(command);
+								if (this.__commandsHistory.length > this.options.historySize) {
+									this.__commandsHistory.pop();
+								};
+							};
+							this.__commandsHistoryIndex = -1;
+						};
+					}),
+					
 					onReady: doodad.OVERRIDE(function onReady(ev) {
-						// TODO: Command history
 						// TODO: Auto-completion
 						// TODO: Hints
 						if (ev.prevent) {
@@ -890,6 +916,7 @@
 										qcb(command);
 									};
 								} else if (command) {
+									this.addCommandHistory(command);
 									this.runCommand(command);
 								};
 								this._super(ev);
@@ -969,6 +996,46 @@
 								};
 								ev.preventDefault();
 								this._super(ev);
+							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.UpArrow)) {  // Up Arrow
+								if (this.__commandsHistory) {
+									if (this.__commandsHistoryIndex + 1 < this.__commandsHistory.length) {
+										if ((this.__commandsHistoryIndex === -1) && (this.__command)) {
+											this.addCommandHistory(this.__command);
+											this.__commandsHistoryIndex = 0;
+										};
+										this.reset();
+										this.__commandsHistoryIndex++;
+										this.__command = this.__commandsHistory[this.__commandsHistoryIndex];
+										this.__commandIndex = this.__command.length;
+										this.printPrompt();
+										this.writeText(this.__command);
+										this.flush();
+									};
+									ev.preventDefault();
+									this._super(ev);
+								};
+							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.DownArrow)) {  // Down Arrow
+								if (this.__commandsHistory) {
+									if ((this.__commandsHistoryIndex === -1) && (this.__command)) {
+										this.addCommandHistory(this.__command);
+										this.__commandsHistoryIndex = 0;
+									};
+									this.reset();
+									this.printPrompt();
+									if (this.__commandsHistory) {
+										if (this.__commandsHistoryIndex - 1 >= 0) {
+											this.__commandsHistoryIndex--;
+											this.__command = this.__commandsHistory[this.__commandsHistoryIndex];
+											this.__commandIndex = this.__command.length;
+											this.writeText(this.__command);
+										} else {
+											this.__commandsHistoryIndex = -1;
+										};
+									};
+									this.flush();
+									ev.preventDefault();
+									this._super(ev);
+								};
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Insert)) {  // Insert
 								this.__insertMode = !this.__insertMode;
 								ev.preventDefault();
@@ -1031,15 +1098,16 @@
 					__locals: doodad.PROTECTED(  null  ),
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
+						const Promise = tools.getPromise();
+
 						this._super(number, options);
 						
-						const self = this;
-
-						const locals = types.get(options, 'locals', {root: root});
+						const self = this,
+							locals = types.get(options, 'locals', {root: root});
 
 						const commands = types.extend({}, types.get(options, 'commands'), {
 							help: function() {
-								return types.get(self.options, 'help', "Help: Type Javascript expressions.");
+								return types.get(self.options, 'help', "Help: Type Javascript expressions, or type `commands` to get a list of available commands.");
 							},
 							quit: function() {
 								tools.abortScript();
@@ -1053,18 +1121,47 @@
 							globals: function() {
 								return types.keys(self.__locals);
 							},
+							history: function() {
+								return types.items(types.clone(self.__commandsHistory).reverse());
+							},
 						})
 
 						tools.forEach(commands, function(fn, name) {
 							const val = function() {return val};
-							val.inspect = fn;
+							val.inspect = function(/*paramarray*/) {
+								let result = fn.call(null, arguments);
+								if (tools.isPromise(result)) {
+									result = result
+										.nodeify(new tools.PromiseCallback(self, self.__printAsyncResult));
+								};
+								return result;
+							};
 							commands[name] = val;
 						});
 						
 						this.__locals = types.extend({}, locals, commands);
 					}),
 					
+					__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
+						let text;
+						try {
+							text = nodeUtil.inspect(err || value, {colors: !err});
+						} catch(ex) {
+							if (ex instanceof types.ScriptAbortedError) {
+								throw ex;
+							};
+							err = true;
+							text = nodeUtil.inspect(ex);
+						};
+						if (err) {
+							this.consoleWrite('error', [text]);
+						} else {
+							this.consoleWrite('log', [text], {raw: true});
+						};
+					}),
+					
 					runCommand: doodad.OVERRIDE(function runCommand(command, /*optional*/options) {
+						const Promise = tools.getPromise();
 						command = command.trim();
 						if (!command) {
 							return;
@@ -1086,25 +1183,30 @@
 							result = ex;
 							failed = true;
 						};
+						let text;
 						try {
-							result = nodeUtil.inspect(result, {colors: !failed, customInspect: true});
+							text = nodeUtil.inspect(result, {colors: !failed, customInspect: true});
 						} catch(ex) {
 							if (ex instanceof types.ScriptAbortedError) {
 								throw ex;
 							};
 							failed = true;
-							result = nodeUtil.inspect(ex);
+							text = nodeUtil.inspect(ex);
 						};
 						if (failed) {
 							this.write(nodejsTerminalAnsi.Colors.Red[0]);
 						};
-						this.writeLine(undefined, options);
-						this.write(result, options);
-						this.writeLine(undefined, options);
+						this.writeLine();
+						this.write(text);
+						this.writeLine();
 						if (failed) {
 							this.write(nodejsTerminalAnsi.Colors.Normal[0]);
 						};
 						this.flush();
+						if (tools.isPromise(result)) {
+							result
+								.nodeify(new tools.PromiseCallback(this, this.__printAsyncResult));
+						};
 					}),
 					
 				}));
@@ -1126,7 +1228,7 @@
 				
 				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
 					return modules.locate('doodad-js-terminal').then(function (location) {
-						const path = tools.options.hooks.pathParser(global.process && root.startupOptions.settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
+						const path = tools.getOptions().hooks.pathParser(global.process && root.getOptions().settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
 						return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf8' }, [__Internal__.parseSettings, callback]);
 					});
 				};
@@ -1141,8 +1243,8 @@
 		return DD_MODULES;
 	};
 	
-	if (!global.process) {
+	if (typeof process !== 'object') {
 		// <PRB> export/import are not yet supported in browsers
 		global.DD_MODULES = exports.add(global.DD_MODULES);
 	};
-})();
+}).call((typeof global !== 'undefined') ? global : ((typeof window !== 'undefined') ? window : this));
