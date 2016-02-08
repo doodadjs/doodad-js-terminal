@@ -81,6 +81,14 @@
 					osType: tools.getOS().type,
 				};
 				
+				const __Natives__ = {
+					mathFloor: global.Math.floor,
+					mathMin: global.Math.min,
+					mathMax: global.Math.max,
+					mathAbs: global.Math.abs,
+					mathSign: global.Math.sign,
+				};
+				
 				nodejsTerminalAnsi.Keyboard = null;
 				nodejsTerminalAnsi.Colors = null;
 				nodejsTerminalAnsi.NewLine = null;
@@ -383,10 +391,10 @@
 					}),
 					restoreCursor: doodad.PUBLIC(function restoreCursor() {
 						const column = this.__savedColumn,
-							row = Math.min(this.__savedRow, this.__rows);
+							row = __Natives__.mathMin(this.__savedRow, this.__rows);
 						
 						//if (row === this.__rows) {
-						//	column = Math.min(column, this.__lastColumn);
+						//	column = __Natives__.mathMin(column, this.__lastColumn);
 						//};
 						
 						const rows = this.__row - row;
@@ -504,7 +512,7 @@
 							const line = lines[i],
 								lineLen = line.length;
 							
-							rows = Math.floor(lineLen / screenColumns);
+							rows = __Natives__.mathFloor(lineLen / screenColumns);
 							columns = (lineLen % screenColumns);
 
 							if (i > 0) {
@@ -518,11 +526,11 @@
 						this.__column += columns;
 						
 						if (this.__column > screenColumns) {
-							this.__row += Math.floor(this.__column / screenColumns);
+							this.__row += __Natives__.mathFloor(this.__column / screenColumns);
 							this.__column = (this.__column % screenColumns);
 						};
 						
-						this.__rows = Math.max(this.__row, this.__rows);
+						this.__rows = __Natives__.mathMax(this.__row, this.__rows);
 
 						if (this.__row === this.__rows) {
 							this.__lastColumn = this.__column;
@@ -643,12 +651,12 @@
 							//if (this.__column === 0) {
 							//	this.__column = newColumns;
 							//};
-							//this.__row = -Math.floor(-(((this.__row - 1) * this.__columns) + (this.__row === this.__rows ? this.__lastColumn : this.__columns)) / newColumns);
+							//this.__row = -__Natives__.mathFloor(-(((this.__row - 1) * this.__columns) + (this.__row === this.__rows ? this.__lastColumn : this.__columns)) / newColumns);
 							//if (this.__row <= 0) {
 							//	this.__row = 1;
 							//};
 							const prevRows = this.__rows;
-							this.__rows = -Math.floor(-(((prevRows - 1) * this.__columns) + this.__lastColumn) / newColumns);
+							this.__rows = -__Natives__.mathFloor(-(((prevRows - 1) * this.__columns) + this.__lastColumn) / newColumns);
 							if (this.__rows <= 0) {
 								this.__rows = 1;
 							};
@@ -805,16 +813,16 @@
 					restoreCursor: doodad.OVERRIDE(function restoreCursor() {
 						this.__savedColumn += this.__homeColumn - this.__savedHomeColumn;
 						const sign = tools.sign(this.__savedColumn);
-						this.__savedColumn = Math.abs(this.__savedColumn);
+						this.__savedColumn = __Natives__.mathAbs(this.__savedColumn);
 						if (sign <= 0) {
 							this.__savedColumn++;
 						};
 						if (this.__savedColumn > this.__columns) {
-							this.__savedRow += Math.sign(this.__savedColumn) * Math.floor(this.__savedColumn / this.__columns);
+							this.__savedRow += __Natives__.mathSign(this.__savedColumn) * __Natives__.mathFloor(this.__savedColumn / this.__columns);
 							this.__savedColumn = this.__savedColumn % this.__columns;
 						};
 						this._super();
-						this.__commandIndex = Math.min(this.__savedCommandIndex, this.__command.length);
+						this.__commandIndex = __Natives__.mathMin(this.__savedCommandIndex, this.__command.length);
 					}),
 					resetPosition: doodad.OVERRIDE(function resetPosition() {
 						this._super();
@@ -876,7 +884,7 @@
 					//	
 					//	if (__Internal__.osType === 'windows') {
 					//		const len = this.__homeColumn + this.__command.length;
-					//		this.__lastColumn = len - (Math.floor(len / this.__columns) * this.__columns);
+					//		this.__lastColumn = len - (__Natives__.mathFloor(len / this.__columns) * this.__columns);
 					//		if (this.__lastColumn <= 0) {
 					//			this.__lastColumn = this.__columns;
 					//		};

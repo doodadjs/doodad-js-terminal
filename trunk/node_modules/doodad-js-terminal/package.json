@@ -1,6 +1,6 @@
 {
   "name": "doodad-js-terminal",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "\"doodad-js\" Terminal (alpha)",
   "homepage": "https://sourceforge.net/projects/doodad-js/",
   "main": "index.js",
@@ -36,8 +36,8 @@
     "email": "doodadjs@gmail.com"
   },
   "dependencies": {
-    "doodad-js": "^1.1.0",
-    "doodad-js-io": "^0.2.0"
+    "doodad-js": "^1.2.0",
+    "doodad-js-io": "^0.3.0"
   },
   "devDependencies": {
     "doodad-js-make": "^0.2.0"
