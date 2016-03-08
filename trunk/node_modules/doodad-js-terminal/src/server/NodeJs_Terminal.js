@@ -35,18 +35,26 @@
 		DD_MODULES = (DD_MODULES || {});
 		DD_MODULES['Doodad.NodeJs.Terminal'] = {
 			type: null,
-			version: '0d',
+			version: '0.2.0d',
 			namespaces: ['Ansi'],
 			dependencies: [
-				'Doodad', 
+				'Doodad.Tools.Files',
+				{
+					name: 'Doodad.Tools.SafeEval',
+					version: '0.1.0',
+				}, 
+				{
+					name: 'Doodad',
+					version: '2.0.0',
+				}, 
 				{
 					name: 'Doodad.IO',
-					version: '0.2',
+					version: '0.4.0',
 				}, 
 				'Doodad.NodeJs', 
 				{
 					name: 'Doodad.NodeJs.IO',
-					version: '0.2',
+					version: '0.4.0',
 				},
 				'Doodad.Modules',
 			],
@@ -57,6 +65,8 @@
 				const doodad = root.Doodad,
 					types = doodad.Types,
 					tools = doodad.Tools,
+					files = tools.Files,
+					safeEval = tools.SafeEval,
 					namespaces = doodad.Namespaces,
 					modules = doodad.Modules,
 					config = tools.Config,
@@ -292,7 +302,7 @@
 								types._instanceof(attrs.stderr, nodejsIO.TextOutputStream), 
 							"Invalid 'stdin', 'stdout', 'stderr'."
 						);
-						this.setAttributes(attrs);
+						types.setAttributes(this, attrs);
 
 						types.getDefault(options, 'writesLimit', 40)
 						
@@ -1106,7 +1116,7 @@
 					__locals: doodad.PROTECTED(  null  ),
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
-						const Promise = tools.getPromise();
+						const Promise = types.getPromise();
 
 						this._super(number, options);
 						
@@ -1138,9 +1148,9 @@
 							const val = function() {return val};
 							val.inspect = function(/*paramarray*/) {
 								let result = fn.call(null, arguments);
-								if (tools.isPromise(result)) {
+								if (types.isPromise(result)) {
 									result = result
-										.nodeify(new tools.PromiseCallback(self, self.__printAsyncResult));
+										.nodeify(new types.PromiseCallback(self, self.__printAsyncResult));
 								};
 								return result;
 							};
@@ -1169,7 +1179,7 @@
 					}),
 					
 					runCommand: doodad.OVERRIDE(function runCommand(command, /*optional*/options) {
-						const Promise = tools.getPromise();
+						const Promise = types.getPromise();
 						command = command.trim();
 						if (!command) {
 							return;
@@ -1178,9 +1188,9 @@
 							failed = false;
 						try {
 							if (types.get(this.options, 'restricted', true)) {
-								result = tools.safeEval(command, this.__locals);
+								result = safeEval.eval(command, this.__locals);
 							} else {
-								result = tools.safeEval.createEval(types.keys(this.__locals))
+								result = safeEval.createEval(types.keys(this.__locals))
 								result = result.apply(null, types.values(this.__locals));
 								result = result(command);
 							};
@@ -1211,9 +1221,9 @@
 							this.write(nodejsTerminalAnsi.Colors.Normal[0]);
 						};
 						this.flush();
-						if (tools.isPromise(result)) {
+						if (types.isPromise(result)) {
 							result
-								.nodeify(new tools.PromiseCallback(this, this.__printAsyncResult));
+								.nodeify(new types.PromiseCallback(this, this.__printAsyncResult));
 						};
 					}),
 					
@@ -1236,7 +1246,7 @@
 				
 				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
 					return modules.locate('doodad-js-terminal').then(function (location) {
-						const path = tools.getOptions().hooks.pathParser(global.process && root.getOptions().settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
+						const path = files.getOptions().hooks.pathParser(global.process && root.getOptions().settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
 						return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf8' }, [__Internal__.parseSettings, callback]);
 					});
 				};

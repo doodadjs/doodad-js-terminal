@@ -55,13 +55,14 @@ Then load 'doodad-js-terminal' and its dependencies :
 ```js
     const modules = {};
     require('doodad-js-io').add(modules);
+    require('doodad-js-safeeval').add(modules);
     require('doodad-js-terminal').add(modules);
     
     function startup() {
 		// Your code here...
     };
     
-    namespaces.loadNamespaces(startup, false, null, modules);
+    namespaces.loadNamespaces(modules, startup);
 ```
 
 ## Example
