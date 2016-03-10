@@ -38,6 +38,7 @@
 			version: '0.2.0d',
 			namespaces: ['Ansi'],
 			dependencies: [
+				'Doodad.Tools.Config',
 				'Doodad.Tools.Files',
 				{
 					name: 'Doodad.Tools.SafeEval',
