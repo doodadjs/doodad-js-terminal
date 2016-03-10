@@ -1,6 +1,6 @@
 {
   "name": "doodad-js-terminal",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "description": "Terminal (alpha)",
   "homepage": "https://sourceforge.net/projects/doodad-js/",
   "main": "index.js",
