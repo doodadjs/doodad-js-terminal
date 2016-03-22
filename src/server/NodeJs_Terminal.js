@@ -24,9 +24,9 @@
 //! END_REPLACE()
 
 (function() {
-	var global = this;
+	const global = this;
 
-	var exports = {};
+	const exports = {};
 	if (typeof process === 'object') {
 		module.exports = exports;
 	};
@@ -35,37 +35,41 @@
 		DD_MODULES = (DD_MODULES || {});
 		DD_MODULES['Doodad.NodeJs.Terminal'] = {
 			type: null,
-			version: '0.2.0d',
+			version: '0.2.5a',
 			namespaces: ['Ansi'],
 			dependencies: [
 				'Doodad.Tools.Config',
 				'Doodad.Tools.Files',
 				{
 					name: 'Doodad.Tools.SafeEval',
-					version: '0.1.0',
+					version: '0.2.0',
 				}, 
 				{
 					name: 'Doodad',
-					version: '2.0.0',
+					version: '2.2.0',
 				}, 
 				{
 					name: 'Doodad.IO',
-					version: '0.4.0',
+					version: '1.0.0',
 				}, 
 				'Doodad.NodeJs', 
 				{
 					name: 'Doodad.NodeJs.IO',
-					version: '0.4.0',
+					version: '1.0.0',
 				},
 				'Doodad.Modules',
+				'Doodad.Tools.Unicode',
 			],
 			
 			create: function create(root, /*optional*/_options) {
 				"use strict";
 
+				// TODO: Fix Unicode cursor movements
+				
 				const doodad = root.Doodad,
 					types = doodad.Types,
 					tools = doodad.Tools,
+					unicode = tools.Unicode,
 					files = tools.Files,
 					safeEval = tools.SafeEval,
 					namespaces = doodad.Namespaces,
@@ -98,6 +102,8 @@
 					mathMax: global.Math.max,
 					mathAbs: global.Math.abs,
 					mathSign: global.Math.sign,
+					
+					stringFromCharCode: String.fromCharCode,
 				};
 				
 				nodejsTerminalAnsi.Keyboard = null;
@@ -171,83 +177,90 @@
 					return computed;
 				};
 				
-				nodejsTerminalAnsi.parseKeys = function parseKeys(ansi, /*optional*/maxCount) {
-					ansi = types.toString(ansi);
+				nodejsTerminalAnsi.parseKeys = function parseKeys(ansi, /*optional*/pos, /*optional*/maxKeysCount) {
+					ansi = types.toString(ansi).replace(/(\r\n)|(\n\r)|\r|\n/gm, nodejsTerminalAnsi.EnterKey);
+					
+					pos = (pos || 0);
+					maxKeysCount = (maxKeysCount || Infinity);
+					
 					const keys = [];
-					let pos = 0;
-					maxCount = (maxCount || Infinity);
-					while (ansi && (keys.length < maxCount)) {
-						const key = {
-								text: null,
-								charCode: 0,
-								functionKeys: 0,
-								scanCode: 0,
-								raw: null,
-							},
-							keyboard = nodejsTerminalAnsi.Keyboard;
+
+					const keyboard = nodejsTerminalAnsi.Keyboard;
+					const entries = types.keys(keyboard);
+
+					while ((pos < ansi.length) && (keys.length < maxKeysCount)) {
+						const key = {};
+						
+						let size = 1;
 						let found = false;
-						scanKeyboard: for (let name in keyboard) {
-							if (types.hasKey(keyboard, name)) {
-								const regEx = keyboard[name];
-								regEx.lastIndex = 0;
-								const match = regEx.exec(ansi);
-								if (match) {
-									let matchLen = match[0].length;
-									name = name.split('_');
-									const nameLen = name.length;
-									let count = 0;
-									for (let i = 0; i < nameLen; i++) {
-										const keyName = name[i];
-										if (keyName) {
-											if (keyName.length > 1) {
-												if (keyName === 'Ctrl') {
-													key.functionKeys |= io.KeyboardFunctionKeys.Ctrl;
-												} else if (keyName === 'Alt') {
-													key.functionKeys |= io.KeyboardFunctionKeys.Alt;
-												} else {
-													key.text = null;
-													key.scanCode = types.get(io.KeyboardScanCodes, keyName, 0);
-												};
+						scanKeyboard: for (let k = 0; k < entries.length; k++) {
+							let name = entries[k];
+							
+							const regEx = keyboard[name];
+							regEx.lastIndex = pos;
+							const match = regEx.exec(ansi);
+							if (match) {
+								size = match[0].length;
+								name = name.split('_');
+								const nameLen = name.length;
+								let count = 0;
+								for (let i = 0; i < nameLen; i++) {
+									const keyName = name[i];
+									if (keyName) {
+										if (keyName.length > 1) {
+											if (keyName === 'Ctrl') {
+												key.functionKeys |= io.KeyboardFunctionKeys.Ctrl;
+											} else if (keyName === 'Alt') {
+												key.functionKeys |= io.KeyboardFunctionKeys.Alt;
+											} else if (keyName === 'Shift') {
+												key.functionKeys |= io.KeyboardFunctionKeys.Shift;
 											} else {
-												key.text = keyName;
-												key.scanCode = keyName.charCodeAt(0);
+												key.text = null;
+												key.scanCode = types.get(io.KeyboardScanCodes, keyName, 0);
 											};
-											count++;
-										};
-									};
-									if ((key.functionKeys & io.KeyboardFunctionKeys.Alt) && (count === 1)) {
-										let nextKey = nodejsTerminalAnsi.parseKeys(ansi.slice(1), 1);
-										if (nextKey.length) {
-											nextKey = nextKey[0];
-											matchLen += nextKey.raw.length;
 										} else {
-											continue scanKeyboard;
+											key.text = keyName;
+											key.scanCode = keyName.charCodeAt(0);
 										};
+										count++;
 									};
-									pos = matchLen;
-									found = true;
-									break;
 								};
+								if ((key.functionKeys & io.KeyboardFunctionKeys.Alt) && (count === 1)) {
+									let nextKey = nodejsTerminalAnsi.parseKeys(ansi, pos + size, 1);
+									if (nextKey.length) {
+										nextKey = nextKey[0];
+										size += nextKey.raw.length;
+									} else {
+										continue scanKeyboard;
+									};
+								};
+								found = true;
+								break;
 							};
 						};
 						if (!found) {
-							const chr = ansi[0];
-							if (chr === '\x1B') { // ESC
-								key.text = null;
-								key.scanCode = io.KeyboardScanCodes.Escape;
-							} else {
-								key.text = chr;
+							const cp = unicode.codePointAt(ansi, pos);
+							if (cp) {
+								size = cp.size;
+								key.charCode = cp.codePoint;
+								if (cp.codePoint === 0x1B) { // ESC
+									key.text = null;
+									key.scanCode = io.KeyboardScanCodes.Escape;
+								} else {
+									key.text = ansi.slice(pos, pos + size);
+								};
 							};
-							pos = 1;
 						};
-						key.charCode = (key.text ? key.text.charCodeAt(0) : 0);
-						key.raw = ansi.slice(0, pos);
+						
+						key.raw = ansi.slice(pos, pos + size);
 						keys.push(key);
-						ansi = ansi.slice(pos);
+						
+						pos += size;
 					};
+					
 					return keys;
 				};
-				
+
 				nodejsTerminalAnsi.toText = function toText(ansi) {
 					ansi = types.toString(ansi);
 					ansi = ansi.replace(/(\r\n)|(\n\r)|\r|\n/gm, nodejsTerminalAnsi.NewLine);
@@ -273,8 +286,6 @@
 					__column: doodad.PROTECTED(0),
 					__row: doodad.PROTECTED(0),
 					__columns: doodad.PROTECTED(0),
-					__rows: doodad.PROTECTED(0),
-					__lastColumn: doodad.PROTECTED(0),
 					
 					__savedColumn: doodad.PROTECTED(0),
 					__savedRow: doodad.PROTECTED(0),
@@ -286,7 +297,6 @@
 					__consoleWritesCount: doodad.PROTECTED(null),
 					__consoleWritesIntervalId: doodad.PROTECTED(null),
 					
-
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 						this._super(options);
 						
@@ -397,40 +407,25 @@
 					}),
 					
 					saveCursor: doodad.PUBLIC(function saveCursor() {
+						this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor);
+						this.flush();
+						
 						this.__savedColumn = this.__column;
 						this.__savedRow = this.__row;
 					}),
 					restoreCursor: doodad.PUBLIC(function restoreCursor() {
-						const column = this.__savedColumn,
-							row = __Natives__.mathMin(this.__savedRow, this.__rows);
+						this.__column = __Natives__.mathMin(this.__savedColumn, this.__columns);
+						this.__row = this.__savedRow;
 						
-						//if (row === this.__rows) {
-						//	column = __Natives__.mathMin(column, this.__lastColumn);
-						//};
-						
-						const rows = this.__row - row;
-						
-						this.write(
-							nodejsTerminalAnsi.SimpleCommands.CursorHome + 
-							(column > 1 ? tools.format("\x1B[~0~C", [column - 1]) : '') +
-							(rows >= 1 ? tools.format("\x1B[~0~A", [rows]) : (rows < 0 ? tools.format("\x1B[~0~B", [-rows]) : ''))
-						);
+						this.write(nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
 						this.flush();
-						
-						this.__column = column;
-						this.__row = row;
 					}),
 					resetPosition: doodad.PUBLIC(function resetPosition() {
 						this.__column = 1;
 						this.__row = 1;
-						this.__rows = 0;
-						this.__lastColumn = 1;
 					}),
 					
-					refresh: doodad.PUBLIC(function refresh() {
-						this.flush();
-						this.resetPosition();
-					}),
+					refresh: doodad.PUBLIC(doodad.METHOD()),
 					
 					reset: doodad.OVERRIDE(function reset() {
 						this._super();
@@ -473,7 +468,7 @@
 							raw: ansi,
 							options: options,
 						};
-						data = this.transform(data) || data;
+						data = this.transform(data, options) || data;
 						
 						this.onWrite(new doodad.Event(data));
 						
@@ -483,12 +478,11 @@
 						
 						const buffer = getBuffer.apply(this),
 							bufferSize = this.options.bufferSize,
-							callback = types.get(options, 'callback'),
-							value = data.valueOf();
+							callback = types.get(options, 'callback');
 						
 						if (this.options.autoFlush) {
-							buffer.push(value);
-							if ((value === io.EOF) || (buffer.length >= bufferSize)) {
+							buffer.push(data);
+							if ((data.raw === io.EOF) || (buffer.length >= bufferSize)) {
 								this.flush({
 									callback: callback,
 								});
@@ -498,7 +492,7 @@
 								};
 							};
 						} else if (buffer.length < bufferSize) {
-							buffer.push(value);
+							buffer.push(data);
 							if (callback) {
 								callback();
 							};
@@ -507,74 +501,60 @@
 						};
 					}),
 					
-					writeText: doodad.REPLACE(function writeText(text, /*optional*/options) {
-						if (!types.get(options, 'raw')) {
-							text = nodejsTerminalAnsi.toText(text);
-						};
+					calculateTextDims: doodad.PROTECTED(function calculateTextDims(text, /*optional*/options) {
+						text = nodejsTerminalAnsi.toText(text);
 						
-						const screenColumns = this.__columns,
-							lines = text.split(nodejsTerminalAnsi.NewLine),
+						const lines = text.split(nodejsTerminalAnsi.NewLine),
 							linesLen = lines.length;
 							
 						let columns = 0,
-							rows;
+							rows = 0;
 							
 						for (let i = 0; i < linesLen; i++) {
-							const line = lines[i],
-								lineLen = line.length;
+							const line = lines[i];
 							
-							rows = __Natives__.mathFloor(lineLen / screenColumns);
-							columns = (lineLen % screenColumns);
-
-							if (i > 0) {
-								rows++;
-								this.__column = 1;
+							const lineLen = unicode.charsCount(line);
+							if (lineLen) {
+								rows += __Natives__.mathFloor(lineLen / this.__columns);
+								columns = (lineLen % this.__columns);
 							};
-							
-							this.__row += rows;
 						};
 						
-						this.__column += columns;
-						
-						if (this.__column > screenColumns) {
-							this.__row += __Natives__.mathFloor(this.__column / screenColumns);
-							this.__column = (this.__column % screenColumns);
+						return {
+							rows: rows,
+							columns: columns,
 						};
-						
-						this.__rows = __Natives__.mathMax(this.__row, this.__rows);
+					}),
+					
+					writeText: doodad.REPLACE(function writeText(text, /*optional*/options) {
+						text = nodejsTerminalAnsi.toText(text);
 
-						if (this.__row === this.__rows) {
-							this.__lastColumn = this.__column;
+						const dims = this.calculateTextDims(text, options);
+						
+						this.__row += dims.rows;
+						this.__column += dims.columns;
+						
+						if (this.__column > this.__columns) {
+							this.__row += __Natives__.mathFloor(this.__column / this.__columns);
+							this.__column = (this.__column % this.__columns);
 						};
 						
 						this.write(text, options);
 					}),
 
 					flush: doodad.OVERRIDE(function flush(/*optional*/options) {
-						//function __flush(stream, buffer, /*optional*/callback) {
-						//	if (buffer.length) {
-						//		stream.write(buffer.shift(), types.extend({}, options, {callback: new doodad.Callback(this, function() {
-						//			__flush(stream, buffer, callback);
-						//		})}));
-						//	} else {
-						//		callback && callback();
-						//	};
-						//};
-						//__flush(this.stdout, this.__stdoutBuffer, new doodad.Callback(this, function() {
-						//	__flush(this.stderr, this.__stderrBuffer);
-						//}));
+						const callback = types.get(options, 'callback');
+						
 						function __flush(stream, buffer, /*optional*/callback) {
 							let ansi = '';
 							while (buffer.length) {
-								var value = buffer.shift();
-								if (value !== io.EOF) {
-									ansi += value;
+								const data = buffer.shift();
+								if (data.raw !== io.EOF) {
+									ansi += data.valueOf();
 								};
 							};
 							stream.write(ansi, types.extend({}, options, {callback: callback}));
 						};
-						
-						const callback = types.get(options, 'callback');
 						
 						__flush(this.stdout, this.__stdoutBuffer, new doodad.Callback(this, function() {
 							__flush(this.stderr, this.__stderrBuffer, new doodad.Callback(this, function() {
@@ -601,7 +581,6 @@
 							
 							this.__consoleWritesCount[writesName]++;
 							
-							this.saveCursor();
 							this.write(	
 								(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X times
 								nodejsTerminalAnsi.SimpleCommands.EraseLine + 
@@ -621,20 +600,10 @@
 							} else {
 								this.write(nodejsTerminalAnsi.Colors.Normal[1], options);
 							};
-							if (name === 'log') {
-								this.writeLine(msg, options);
-							} else if (name === 'warn') {
+							if ((name === 'warn') || (name === 'error') || (name === 'info')) {
 								options.isError = true;
-								this.writeLine(msg, options);
-							} else if (name === 'error') {
-								options.isError = true;
-								this.writeLine(msg, options);
-							} else if (name === 'info') {
-								options.isError = true;
-								this.writeLine(msg, options);
-							} else {
-								this.writeLine(msg, options);
 							};
+							this.write(msg + nodejsTerminalAnsi.NewLine, options);
 							if (color) {
 								this.write(nodejsTerminalAnsi.Colors.Normal[0], options);
 							};
@@ -642,8 +611,8 @@
 								this.write(nodejsTerminalAnsi.Colors.Normal[1], options);
 							};
 							this.flush();
+							
 							this.refresh();
-							this.restoreCursor();
 							
 							return msg;
 						};
@@ -654,36 +623,7 @@
 						this.__columns = newColumns;
 						nodejsTerminalAnsi.SimpleCommands.CursorEnd = '\x1B[' + newColumns + 'G';
 					}),
-	/*
-					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize(context) {
-						const newColumns = this.stdout.stream.columns;
-						if (tools.getOS().type === 'windows') {
-							//this.__column = ((((this.__row - 1) * this.__columns) + this.__column) % newColumns);
-							//if (this.__column === 0) {
-							//	this.__column = newColumns;
-							//};
-							//this.__row = -__Natives__.mathFloor(-(((this.__row - 1) * this.__columns) + (this.__row === this.__rows ? this.__lastColumn : this.__columns)) / newColumns);
-							//if (this.__row <= 0) {
-							//	this.__row = 1;
-							//};
-							const prevRows = this.__rows;
-							this.__rows = -__Natives__.mathFloor(-(((prevRows - 1) * this.__columns) + this.__lastColumn) / newColumns);
-							if (this.__rows <= 0) {
-								this.__rows = 1;
-							};
-							if (this.__lastColumn) {
-								this.__lastColumn = ((((prevRows - 1) * this.__columns) + this.__lastColumn) % newColumns);
-								if (this.__lastColumn <= 0) {
-									this.__lastColumn = newColumns;
-								};
-							};
-							this.setColumns();
-							// Windows automatically moves cursor at the end
-							this.__column = this.__lastColumn;
-							this.__row = this.__rows;
-						};
-					}),
-	*/
+
 					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize() {
 						if (__Internal__.osType === 'windows') {
 							this.write(
@@ -754,9 +694,6 @@
 					error: doodad.OVERRIDE(ioInterfaces.IConsole, function error(raw, /*optional*/options) {
 						this.__host.consoleWrite('error', [raw], options);
 					}),
-					exception: doodad.OVERRIDE(ioInterfaces.IConsole, function exception(raw, /*optional*/options) {
-						this.__host.consoleWrite('error', [raw], options);
-					}),
 					log: doodad.OVERRIDE(ioInterfaces.IConsole, function log(raw, /*optional*/options) {
 						this.__host.consoleWrite('log', [raw], options);
 					}),
@@ -767,13 +704,16 @@
 					$TYPE_NAME: 'CommandPrompt',
 					
 					__command: doodad.PROTECTED(''),
+					__commandLen: doodad.PROTECTED(0),
 					__commandIndex: doodad.PROTECTED(0),
-					__insertMode: doodad.PROTECTED(false),
+					__insertMode: doodad.PROTECTED(true),
 					__homeColumn: doodad.PROTECTED(1),
+					__homeRow: doodad.PROTECTED(1),
 					__commandsHistory: doodad.PROTECTED(null),
 					__commandsHistoryIndex: doodad.PROTECTED(-1),
 					
 					__savedHomeColumn: doodad.PROTECTED(1),
+					__savedHomeRow: doodad.PROTECTED(1),
 					__savedCommandIndex: doodad.PROTECTED(0),
 					
 					__questionMode: doodad.PROTECTED(false),
@@ -782,7 +722,6 @@
 					__questionOptions: doodad.PROTECTED(null),
 					
 					// <PRB> Since ?????, the cursor behaves differently
-					__linuxPatch: doodad.PROTECTED(2),
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 						this._super(number, options);
@@ -795,6 +734,7 @@
 					}),
 					
 					printPrompt: doodad.PROTECTED(function printPrompt() {
+						this.resetPosition();
 						this.write(
 							nodejsTerminalAnsi.SimpleCommands.EraseLine +
 							nodejsTerminalAnsi.SimpleCommands.CursorHome
@@ -806,6 +746,7 @@
 						};
 						this.flush();
 						this.__homeColumn = this.__column;
+						this.__homeRow = this.__row;
 					}),
 					
 					runCommand: doodad.PROTECTED(doodad.MUST_OVERRIDE()), //function runCommand(command, /*optional*/options)
@@ -818,27 +759,23 @@
 
 					saveCursor: doodad.OVERRIDE(function saveCursor() {
 						this._super();
+						
 						this.__savedHomeColumn = this.__homeColumn;
+						this.__savedHomeRow = this.__homeRow;
 						this.__savedCommandIndex = this.__commandIndex;
 					}),
 					restoreCursor: doodad.OVERRIDE(function restoreCursor() {
-						this.__savedColumn += this.__homeColumn - this.__savedHomeColumn;
-						const sign = tools.sign(this.__savedColumn);
-						this.__savedColumn = __Natives__.mathAbs(this.__savedColumn);
-						if (sign <= 0) {
-							this.__savedColumn++;
-						};
-						if (this.__savedColumn > this.__columns) {
-							this.__savedRow += __Natives__.mathSign(this.__savedColumn) * __Natives__.mathFloor(this.__savedColumn / this.__columns);
-							this.__savedColumn = this.__savedColumn % this.__columns;
-						};
+						this.__homeColumn = this.__savedHomeColumn;
+						this.__homeRow = this.__savedHomeRow;
+						this.__commandIndex = this.__savedCommandIndex;
+
 						this._super();
-						this.__commandIndex = __Natives__.mathMin(this.__savedCommandIndex, this.__command.length);
 					}),
 					resetPosition: doodad.OVERRIDE(function resetPosition() {
 						this._super();
 						
 						this.__homeColumn = 1;
+						this.__homeRow = 1;
 						this.__commandIndex = 0;
 					}),
 					
@@ -846,27 +783,26 @@
 						this._super();
 
 						this.__command = '';
-						this.__insertMode = false;
+						this.__commandLen = 0;
+						this.__insertMode = true;
 						this.__questionMode = false;
 						this.__question = '';
 						this.__questionCallback = null;
 						this.__questionOptions = null;
-						
-						this.__linuxPatch = 2;
 					}),
 
 					clear: doodad.OVERRIDE(function clear() {
 						this._super();
 
 						this.__command = '';
+						this.__commandLen = 0;
 					}),
 					
-					refresh: doodad.OVERRIDE(function refresh() {
-						this.writeLine();
-
+					refresh: doodad.OVERRIDE(function refresh(/*optional*/keepPosition) {
 						this._super();
 						
 						this.printPrompt();
+						
 						if (this.__command) {
 							this.writeText(this.__command);
 							this.__commandIndex = this.__command.length;
@@ -888,26 +824,11 @@
 						this.refresh();
 					}),
 
-					//onStreamResize: doodad.OVERRIDE(function onStreamResize(context) {
-					//	// TODO: Fix bug on Windows with "Home" and "End" erasing screen
-					//	
-					//	this._super();
-					//	
-					//	if (__Internal__.osType === 'windows') {
-					//		const len = this.__homeColumn + this.__command.length;
-					//		this.__lastColumn = len - (__Natives__.mathFloor(len / this.__columns) * this.__columns);
-					//		if (this.__lastColumn <= 0) {
-					//			this.__lastColumn = this.__columns;
-					//		};
-					//		// Windows automatically moves cursor at the end
-					//		this.__column = this.__lastColumn;
-					//		this.__commandIndex = this.__command.length;
-					//	};
-					//}),
-					
-					addCommandHistory: doodad.PROTECTED(function addCommandHistory(command) {
+					addCommandHistory: doodad.PROTECTED(function addCommandHistory(command, /*optional*/replace) {
 						if (command && this.__commandsHistory) {
-							if (command !== this.__commandsHistory[0]) {
+							if (replace && (this.__commandsHistoryIndex >= 0) && (this.__commandsHistoryIndex < this.__commandsHistory.length)) {
+								this.__commandsHistory[this.__commandsHistoryIndex] = command;
+							} else if (!replace && (command !== this.__commandsHistory[0])) {
 								this.__commandsHistory.unshift(command);
 								if (this.__commandsHistory.length > this.options.historySize) {
 									this.__commandsHistory.pop();
@@ -926,6 +847,8 @@
 							const data = ev.data;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
 								const command = this.__command;
+								this.__command = '';
+								this.__commandLen = 0;
 								if (this.__questionMode) {
 									const qcb = this.__questionCallback;
 									this.writeLine();
@@ -942,10 +865,12 @@
 								this.reset();
 								this.printPrompt();
 							} else if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'H')) { // Backspace
-								if (this.__commandIndex > 0) {
-									this.__commandIndex--;
-									const end = this.__command.slice(this.__commandIndex + 1);
-									this.__command = this.__command.slice(0, this.__commandIndex) + end;
+								const chr = unicode.prevChar(this.__command, this.__commandIndex);
+								if (chr) {
+									const end = this.__command.slice(this.__commandIndex);
+									this.__command = this.__command.slice(0, this.__commandIndex - chr.size) + end;
+									this.__commandLen--;
+									this.__commandIndex -= chr.size;
 									this._super(ev);
 									if (end) {
 										this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
@@ -956,72 +881,92 @@
 									this._super(ev);
 								};
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Home)) {  // Home
+								const moveUpCount = this.__row - this.__homeRow;
 								this.write(	
-									(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
+									(moveUpCount > 0 ? tools.format("\u001B[~0~A", [moveUpCount]) : '') + // CursorUp X Times
 									nodejsTerminalAnsi.SimpleCommands.CursorHome +
 									(this.__homeColumn > 1 ? tools.format("\u001B[~0~C", [this.__homeColumn - 1]) : '') // CursorRight X Times
 								);
 								this.flush();
+								
 								this.__column = this.__homeColumn;
-								this.__row = 1;
+								this.__row = this.__homeRow;
 								this.__commandIndex = 0;
+								
 								ev.preventDefault();
 								this._super(ev);
+								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.End)) {  // End
+								const dims = this.calculateTextDims(this.__command);
+								
+								let rows = this.__homeRow + dims.rows;
+								let columns = this.__homeColumn + dims.columns;
+								
+								if (columns > this.__columns) {
+									rows += __Natives__.mathFloor(columns / this.__columns);
+									columns = (columns % this.__columns);
+								};
+								
 								this.write(	
-									(this.__row > 0 && this.__rows > this.__row ? tools.format("\u001B[~0~B", [this.__rows - this.__row]) : '') + // CursorDown X Times
+									((this.__row > 0) && (rows > this.__row) ? tools.format("\u001B[~0~B", [rows - this.__row]) : '') + // CursorDown X Times
 									nodejsTerminalAnsi.SimpleCommands.CursorHome +
-									(this.__lastColumn > 1 ? tools.format("\u001B[~0~C", [this.__lastColumn - 1]) : '') // CursorRight X Times
+									((columns > 1) ? tools.format("\u001B[~0~C", [columns - 1]) : '') // CursorRight X Times
 								);
 								this.flush();
-								this.__column = this.__lastColumn;
-								this.__row = this.__rows;
+								
+								this.__column = columns;
+								this.__row = rows;
 								this.__commandIndex = this.__command.length;
+								
 								ev.preventDefault();
 								this._super(ev);
+								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.LeftArrow)) {  // Left Arrow
-								if (this.__commandIndex > 0) {
+								const chr = unicode.prevChar(this.__command, this.__commandIndex);
+								if (chr) {
 									if (this.__column <= 1) {
 										if (this.__row > 1) {
 											this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp + nodejsTerminalAnsi.SimpleCommands.CursorEnd);
-											this.flush();
 											this.__column = this.__columns;
 											this.__row--;
 										};
 									} else {
 										this.write(nodejsTerminalAnsi.SimpleCommands.CursorLeft);
-										this.flush();
 										this.__column--;
 									};
-									this.__commandIndex--;
+									this.__commandIndex -= chr.size;
+									this.flush();
 								};
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.RightArrow)) {  // Right Arrow
-								if (this.__commandIndex < this.__command.length) {
+								const chr = unicode.nextChar(this.__command, this.__commandIndex);
+								if (chr) {
 									if (this.__column >= this.__columns) {
-										if (this.__row < this.__rows) {
-											this.write(nodejsTerminalAnsi.SimpleCommands.CursorDown + nodejsTerminalAnsi.SimpleCommands.CursorHome);
-											this.flush();
-											this.__column = 1;
-											this.__row++;
-										};
+										this.write(nodejsTerminalAnsi.SimpleCommands.CursorDown + nodejsTerminalAnsi.SimpleCommands.CursorHome);
+										this.__column = 1;
+										this.__row++;
 									} else {
 										this.write(nodejsTerminalAnsi.SimpleCommands.CursorRight);
-										this.flush();
 										this.__column++;
 									};
-									this.__commandIndex++;
+									this.__commandIndex += chr.size;
+									this.flush();
 								};
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.UpArrow)) {  // Up Arrow
-								if (this.__commandsHistory) {
+								if (this.__commandsHistory && !this.__questionMode) {
 									if (this.__commandsHistoryIndex + 1 < this.__commandsHistory.length) {
-										if ((this.__commandsHistoryIndex === -1) && (this.__command)) {
-											this.addCommandHistory(this.__command);
+										if ((this.__commandsHistoryIndex <= 0) && (this.__command)) {
+											this.addCommandHistory(this.__command, (this.__commandsHistoryIndex === 0));
 											this.__commandsHistoryIndex = 0;
 										};
+										this.write(	
+											(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
+											nodejsTerminalAnsi.SimpleCommands.EraseBelow
+										);
+										this.flush();
 										this.reset();
 										this.__commandsHistoryIndex++;
 										this.__command = this.__commandsHistory[this.__commandsHistoryIndex];
@@ -1030,15 +975,20 @@
 										this.writeText(this.__command);
 										this.flush();
 									};
-									ev.preventDefault();
-									this._super(ev);
 								};
+								ev.preventDefault();
+								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.DownArrow)) {  // Down Arrow
-								if (this.__commandsHistory) {
-									if ((this.__commandsHistoryIndex === -1) && (this.__command)) {
-										this.addCommandHistory(this.__command);
+								if (this.__commandsHistory && !this.__questionMode) {
+									if ((this.__commandsHistoryIndex <= 0) && (this.__command)) {
+										this.addCommandHistory(this.__command, (this.__commandsHistoryIndex === 0));
 										this.__commandsHistoryIndex = 0;
 									};
+									this.write(	
+										(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
+										nodejsTerminalAnsi.SimpleCommands.EraseBelow
+									);
+									this.flush();
 									this.reset();
 									this.printPrompt();
 									if (this.__commandsHistory) {
@@ -1052,55 +1002,60 @@
 										};
 									};
 									this.flush();
-									ev.preventDefault();
-									this._super(ev);
 								};
+								ev.preventDefault();
+								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Insert)) {  // Insert
 								this.__insertMode = !this.__insertMode;
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Delete)) {  // Delete
-								if (this.__commandIndex < this.__command.length) {
-									const end = this.__command.slice(this.__commandIndex + 1);
+								const chr = unicode.nextChar(this.__command, this.__commandIndex);
+								if (chr) {
+									const end = this.__command.slice(this.__commandIndex + chr.size);
 									this.__command = this.__command.slice(0, this.__commandIndex) + end;
-									this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
+									this.__commandLen--;
+									this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + tools.repeat(nodejsTerminalAnsi.SimpleCommands.Erase, chr.size) + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
 									this.flush();
 								};
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && data.text) {  // Visible chars
-								const end = this.__command.slice(this.__commandIndex + (this.__insertMode ? 0 : 1)),
-									newCommand = this.__command.slice(0, this.__commandIndex) + data.text + end;
-								if (newCommand.length <= types.get(this.options, 'maxCommandLength', 1024)) {
-									this.__command = newCommand;
-									this.__commandIndex++;
+								let chr = unicode.nextChar(this.__command, this.__commandIndex);
+								let end = '';
+								if (chr) {
+									end = this.__command.slice(this.__commandIndex + (this.__insertMode ? 0 : chr.size));
+								};
+								
+								const len = unicode.charsCount(data.text);
+
+								if ((this.__commandLen + len) <= types.get(this.options, 'maxCommandLength', 1024)) {
+									this.__command = this.__command.slice(0, this.__commandIndex) + data.text + end;
+									this.__commandLen += len;
+									this.__commandIndex += data.text.length;
 									this.writeText(data.text);
-									const row = this.__row,
-										column = this.__column;
 									if (end) {
-										this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor);
+										this.saveCursor();
+										
 										this.writeText(end);
-										this.write(nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
-										// <PRB> Since ?????, the cursor behaves differently, both on Windows and Linux
+										
+										// <PRB> Since ?????, the cursor behaves weird, both on Windows and Linux
+										let fixCursor = false;
 										if (__Internal__.osType === 'windows') {
-											if (((column + end.length) % this.__columns) === 1) {
-												this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp);
-											};
+											fixCursor = (this.__column === 1);
 										} else {
-											if (column < this.__columns) {
-												if (((column + end.length) % this.__columns) === this.__linuxPatch) {
-													this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp);
-													this.__linuxPatch = 1;
-												};
-											} else {
-												this.write(nodejsTerminalAnsi.SimpleCommands.CursorDown + nodejsTerminalAnsi.SimpleCommands.CursorHome);
-											};
+											fixCursor = (this.__column === 2);
+										};
+
+										this.restoreCursor();
+										
+										if (fixCursor) {
+											this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp);
 										};
 									};
 									this.flush();
-									this.__row = row;
-									this.__column = column;
 								};
+								
 								ev.preventDefault();
 								this._super(ev);
 							} else {
@@ -1162,26 +1117,26 @@
 					}),
 					
 					__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
-						let text;
+						let ansi;
 						try {
-							text = nodeUtil.inspect(err || value, {colors: !err});
+							ansi = nodeUtil.inspect(err || value, {colors: !err});
 						} catch(ex) {
 							if (ex instanceof types.ScriptAbortedError) {
 								throw ex;
 							};
 							err = true;
-							text = nodeUtil.inspect(ex);
+							ansi = nodeUtil.inspect(ex);
 						};
 						if (err) {
-							this.consoleWrite('error', [text]);
+							this.consoleWrite('error', [ansi]);
 						} else {
-							this.consoleWrite('log', [text], {raw: true});
+							this.consoleWrite('log', [ansi]);
 						};
 					}),
 					
 					runCommand: doodad.OVERRIDE(function runCommand(command, /*optional*/options) {
 						const Promise = types.getPromise();
-						command = command.trim();
+						command = tools.trim(command);
 						if (!command) {
 							return;
 						};
@@ -1236,6 +1191,7 @@
 						nodejsTerminalAnsi.Keyboard = nodejsTerminalAnsi.computeKeyboard(data.keyboard);
 						nodejsTerminalAnsi.NewLine = data.newLine;
 						nodejsTerminalAnsi.Colors = data.colors;
+						nodejsTerminalAnsi.EnterKey = data.enterKey;
 						const cursorEnd = nodejsTerminalAnsi.SimpleCommands && nodejsTerminalAnsi.SimpleCommands.CursorEnd;
 						nodejsTerminalAnsi.SimpleCommands = data.simpleCommands;
 						if (cursorEnd) {
@@ -1248,7 +1204,7 @@
 				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
 					return modules.locate('doodad-js-terminal').then(function (location) {
 						const path = files.getOptions().hooks.pathParser(global.process && root.getOptions().settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
-						return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf8' }, [__Internal__.parseSettings, callback]);
+						return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
 					});
 				};
 
