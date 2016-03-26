@@ -559,35 +559,39 @@
 							
 							this.__consoleWritesCount[writesName]++;
 							
-							this.write(	
+							let ansi = '';
+							
+							ansi +=
 								(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X times
 								nodejsTerminalAnsi.SimpleCommands.EraseLine + 
 								nodejsTerminalAnsi.SimpleCommands.EraseBelow + 
-								nodejsTerminalAnsi.SimpleCommands.CursorHome
-							);
+								nodejsTerminalAnsi.SimpleCommands.CursorHome;
+								
 							options = types.extend({}, this.options, options);
 							const color = nodejsTerminalAnsi.Colors[types.get(options, name + 'Color', null)];
 							if (color) {
-								this.write(color[0], options);
+								ansi += color[0];
 							} else {
-								this.write(nodejsTerminalAnsi.Colors.Normal[0], options);
+								ansi += nodejsTerminalAnsi.Colors.Normal[0];
 							};
 							const bgColor = nodejsTerminalAnsi.Colors[types.get(options, name + 'BgColor', null)];
 							if (bgColor) {
-								this.write(bgColor[1], options);
+								ansi += bgColor[1];
 							} else {
-								this.write(nodejsTerminalAnsi.Colors.Normal[1], options);
+								ansi += nodejsTerminalAnsi.Colors.Normal[1];
 							};
 							if ((name === 'warn') || (name === 'error') || (name === 'info')) {
 								options.isError = true;
 							};
-							this.write(msg + nodejsTerminalAnsi.NewLine, options);
+							ansi += msg + nodejsTerminalAnsi.NewLine;
 							if (color) {
-								this.write(nodejsTerminalAnsi.Colors.Normal[0], options);
+								ansi += nodejsTerminalAnsi.Colors.Normal[0];
 							};
 							if (bgColor) {
-								this.write(nodejsTerminalAnsi.Colors.Normal[1], options);
+								ansi += nodejsTerminalAnsi.Colors.Normal[1];
 							};
+							
+							this.write(ansi, options);
 							this.flush();
 							
 							this.refresh();
