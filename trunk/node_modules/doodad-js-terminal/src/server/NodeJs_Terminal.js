@@ -35,31 +35,9 @@
 		DD_MODULES = (DD_MODULES || {});
 		DD_MODULES['Doodad.NodeJs.Terminal'] = {
 			type: null,
-			version: '0.2.5a',
+			//! INSERT("version:'" + VERSION('doodad-js-terminal') + "',")
 			namespaces: ['Ansi'],
-			dependencies: [
-				'Doodad.Tools.Config',
-				'Doodad.Tools.Files',
-				{
-					name: 'Doodad.Tools.SafeEval',
-					version: '0.2.0',
-				}, 
-				{
-					name: 'Doodad',
-					version: '2.2.0',
-				}, 
-				{
-					name: 'Doodad.IO',
-					version: '1.0.0',
-				}, 
-				'Doodad.NodeJs', 
-				{
-					name: 'Doodad.NodeJs.IO',
-					version: '1.0.0',
-				},
-				'Doodad.Modules',
-				'Doodad.Tools.Unicode',
-			],
+			dependencies: null,
 			
 			create: function create(root, /*optional*/_options) {
 				"use strict";
