@@ -1,50 +1,14 @@
 {
   "name": "doodad-js-terminal",
-  "version": "1.0.1",
+  "version": "1.1.3",
   "stage": "a",
   "description": "Terminal (alpha)",
-  "homepage": "https://sourceforge.net/projects/doodad-js/",
-  "main": "index.js",
   "files": [
-    "src",
-    "res",
-    "NodeJs_Terminal.min.js",
-    "index.js",
-    "README",
-    "LICENSE",
-	"browserify.js",
 	"tonic.js"
   ],
-  "scripts": {
-    "prepublish": "node -r \"doodad-js-make/make.js\" . make",
-    "configure": "node -r \"doodad-js-make/make.js\" . custom=configure"
-  },
   "keywords": [
     "doodad-js",
     "terminal"
   ],
-  "author": "Claude Petit <doodadjs@gmail.com> (https://sourceforge.net/projects/doodad-js/)",
-  "license": "Apache-2.0",
-  "engines": {
-    "node": ">=4.2.0 <6.0.0"
-  },
-  "repository": {
-    "type": "svn",
-    "url": "https://svn.code.sf.net/p/doodad-js/code/trunk/node_modules/doodad-js-terminal/"
-  },
-  "bugs": {
-    "url": "https://sourceforge.net/p/doodad-js/tickets/",
-    "email": "doodadjs@gmail.com"
-  },
-  "dependencies": {
-    "doodad-js": "^2.2.0",
-    "doodad-js-io": "^1.0.0",
-    "doodad-js-safeeval": "^0.2.0",
-    "doodad-js-unicode": "^0.3.0"
-  },
-  "devDependencies": {
-    "doodad-js-make": "^0.3.2"
-  },
-  "tonicExampleFilename": "tonic.js",
-  "browser": "./browserify.js"
+  "tonicExampleFilename": "tonic.js"
 }

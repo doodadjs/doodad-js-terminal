@@ -1,4 +1,4 @@
-//! REPLACE_BY("// Copyright 2016 Claude Petit, licensed under Apache License version 2.0\n")
+//! REPLACE_BY("// Copyright 2016 Claude Petit, licensed under Apache License version 2.0\n", true)
 // dOOdad - Object-oriented programming framework
 // File: NodeJs_Terminal.js - NodeJs Terminal
 // Project home: https://sourceforge.net/projects/doodad-js/
@@ -27,17 +27,22 @@
 	const global = this;
 
 	const exports = {};
-	if (typeof process === 'object') {
-		module.exports = exports;
+	
+	//! BEGIN_REMOVE()
+	if ((typeof process === 'object') && (typeof module === 'object')) {
+	//! END_REMOVE()
+		//! IF_DEF("serverSide")
+			module.exports = exports;
+		//! END_IF()
+	//! BEGIN_REMOVE()
 	};
+	//! END_REMOVE()
 	
 	exports.add = function add(DD_MODULES) {
 		DD_MODULES = (DD_MODULES || {});
 		DD_MODULES['Doodad.NodeJs.Terminal'] = {
-			type: null,
-			//! INSERT("version:'" + VERSION('doodad-js-terminal') + "',")
+			version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE() */,
 			namespaces: ['Ansi'],
-			dependencies: null,
 			
 			create: function create(root, /*optional*/_options) {
 				"use strict";
@@ -53,6 +58,7 @@
 					namespaces = doodad.Namespaces,
 					modules = doodad.Modules,
 					config = tools.Config,
+					extenders = doodad.Extenders,
 					interfaces = doodad.Interfaces,
 					mixIns = doodad.MixIns,
 					io = doodad.IO,
@@ -703,6 +709,21 @@
 					__questionCallback: doodad.PROTECTED(null),
 					__questionOptions: doodad.PROTECTED(null),
 					
+					__commands: doodad.PROTECTED(doodad.ATTRIBUTE({
+						help: function() {
+							return types.get(this.options, 'help', "Type 'quit', 'exit' or history'");
+						},
+						quit: function() {
+							tools.abortScript();
+						},
+						exit: function() {
+							tools.abortScript();
+						},
+						history: function() {
+							return types.items(types.clone(this.__commandsHistory).reverse());
+						},
+					}, extenders.ExtendObject)),
+					
 					// <PRB> Since ?????, the cursor behaves differently
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
@@ -780,7 +801,7 @@
 						this.__commandLen = 0;
 					}),
 					
-					refresh: doodad.OVERRIDE(function refresh(/*optional*/keepPosition) {
+					refresh: doodad.OVERRIDE(function refresh() {
 						this._super();
 						
 						this.printPrompt();
@@ -950,10 +971,10 @@
 										);
 										this.flush();
 										this.reset();
+										this.printPrompt();
 										this.__commandsHistoryIndex++;
 										this.__command = this.__commandsHistory[this.__commandsHistoryIndex];
 										this.__commandIndex = this.__command.length;
-										this.printPrompt();
 										this.writeText(this.__command);
 										this.flush();
 									};
@@ -977,8 +998,8 @@
 										if (this.__commandsHistoryIndex - 1 >= 0) {
 											this.__commandsHistoryIndex--;
 											this.__command = this.__commandsHistory[this.__commandsHistoryIndex];
-											this.__commandIndex = this.__command.length;
 											this.writeText(this.__command);
+											this.__commandIndex = this.__command.length;
 										} else {
 											this.__commandsHistoryIndex = -1;
 										};
@@ -1051,7 +1072,21 @@
 				{
 					$TYPE_NAME: 'Javascript',
 					
-					__locals: doodad.PROTECTED(  null  ),
+					__globals: doodad.PROTECTED(  null  ),
+					__preparedCommands: doodad.PROTECTED(  null  ),
+					
+					__commands: {
+						help: function() {
+							return types.get(this.options, 'help', "Help: Type Javascript expressions, or type `commands` to get a list of available commands.");
+						},
+						commands: function() {
+							return types.keys(this.__preparedCommands);
+						},
+						globals: function() {
+							return types.keys(this.__globals);
+						},
+					},
+					
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 						const Promise = types.getPromise();
@@ -1061,31 +1096,12 @@
 						const self = this,
 							locals = types.get(options, 'locals', {root: root});
 
-						const commands = types.extend({}, types.get(options, 'commands'), {
-							help: function() {
-								return types.get(self.options, 'help', "Help: Type Javascript expressions, or type `commands` to get a list of available commands.");
-							},
-							quit: function() {
-								tools.abortScript();
-							},
-							exit: function() {
-								tools.abortScript();
-							},
-							commands: function() {
-								return types.keys(commands);
-							},
-							globals: function() {
-								return types.keys(self.__locals);
-							},
-							history: function() {
-								return types.items(types.clone(self.__commandsHistory).reverse());
-							},
-						})
+						const commands = types.extend({}, this.__commands, types.get(options, 'commands'));
 
 						tools.forEach(commands, function(fn, name) {
 							const val = function() {return val};
 							val.inspect = function(/*paramarray*/) {
-								let result = fn.call(null, arguments);
+								let result = fn.call(self, arguments);
 								if (types.isPromise(result)) {
 									result = result
 										.nodeify(new types.PromiseCallback(self, self.__printAsyncResult));
@@ -1095,7 +1111,9 @@
 							commands[name] = val;
 						});
 						
-						this.__locals = types.extend({}, locals, commands);
+						this.__preparedCommands = commands;
+						this.__globals = types.extend({}, locals, commands);
+						
 					}),
 					
 					__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
@@ -1126,10 +1144,10 @@
 							failed = false;
 						try {
 							if (types.get(this.options, 'restricted', true)) {
-								result = safeEval.eval(command, this.__locals);
+								result = safeEval.eval(command, this.__globals);
 							} else {
-								result = safeEval.createEval(types.keys(this.__locals))
-								result = result.apply(null, types.values(this.__locals));
+								result = safeEval.createEval(types.keys(this.__globals))
+								result = result.apply(null, types.values(this.__globals));
 								result = result(command);
 							};
 						} catch(ex) {
@@ -1184,10 +1202,11 @@
 				};
 				
 				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
-					return modules.locate('doodad-js-terminal').then(function (location) {
-						const path = files.getOptions().hooks.pathParser(global.process && root.getOptions().settings.fromSource ? './src/server/res/nodejsTerminal.json' : './res/nodejsTerminal.json');
-						return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
-					});
+					//return modules.locate('doodad-js-terminal').then(function (location) {
+						const path = files.Path.parse(module.filename).set({file: ''}).combine('./res/nodejsTerminal.json', {os: 'linux'});
+						//return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
+						return config.loadFile(path, { async: true, watch: true, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
+					//});
 				};
 
 				
@@ -1200,8 +1219,23 @@
 		return DD_MODULES;
 	};
 	
-	if (typeof process !== 'object') {
-		// <PRB> export/import are not yet supported in browsers
-		global.DD_MODULES = exports.add(global.DD_MODULES);
+	//! BEGIN_REMOVE()
+	if ((typeof process !== 'object') || (typeof module !== 'object')) {
+	//! END_REMOVE()
+		//! IF_UNDEF("serverSide")
+			// <PRB> export/import are not yet supported in browsers
+			global.DD_MODULES = exports.add(global.DD_MODULES);
+		//! END_IF()
+	//! BEGIN_REMOVE()
 	};
-}).call((typeof global !== 'undefined') ? global : ((typeof window !== 'undefined') ? window : this));
+	//! END_REMOVE()
+}).call(
+	//! BEGIN_REMOVE()
+	(typeof window !== 'undefined') ? window : ((typeof global !== 'undefined') ? global : this)
+	//! END_REMOVE()
+	//! IF_DEF("serverSide")
+	//! 	INJECT("global")
+	//! ELSE()
+	//! 	INJECT("window")
+	//! END_IF()
+);
