@@ -237,6 +237,11 @@
 						};
 						
 						key.raw = ansi.slice(pos, pos + size);
+						
+						key.valueOf = function() {
+							return key.text;
+						};
+						
 						keys.push(key);
 						
 						pos += size;
@@ -274,16 +279,10 @@
 					__savedColumn: doodad.PROTECTED(0),
 					__savedRow: doodad.PROTECTED(0),
 					
-					__stdinBuffer: doodad.PROTECTED(null),
-					__stdoutBuffer: doodad.PROTECTED(null),
-					__stderrBuffer: doodad.PROTECTED(null),
-					
 					__consoleWritesCount: doodad.PROTECTED(null),
 					__consoleWritesIntervalId: doodad.PROTECTED(null),
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
-						this._super(options);
-						
 						root.DD_ASSERT && root.DD_ASSERT(types.isInteger(number) && (number >= 0) && (number < 10), "Invalid console number.");
 						const attrs = {
 							number: number,
@@ -295,18 +294,15 @@
 								types._instanceof(attrs.stdin, nodejsIO.TextInputStream) && 
 								types._instanceof(attrs.stdout, nodejsIO.TextOutputStream) && 
 								types._instanceof(attrs.stderr, nodejsIO.TextOutputStream), 
-							"Invalid 'stdin', 'stdout', 'stderr'."
+							"Invalid 'stdin', 'stdout' or 'stderr'."
 						);
 						types.setAttributes(this, attrs);
 
 						types.getDefault(options, 'writesLimit', 40)
 						
-						this.__stdinBuffer = [];
-						this.__stdoutBuffer = [];
-						this.__stderrBuffer = [];
-						
+						this._super(options);
+
 						this.onStreamResize.attach(this.stdout.stream);
-						this.resetPosition();
 						this.setColumns();
 						this.__consoleWritesCount = {};
 						this.__consoleWritesIntervalId = setInterval(new doodad.Callback(this, function() {
@@ -327,30 +323,22 @@
 					}),
 					
 					__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
-						const data = nodejsTerminalAnsi.parseKeys(ev.data.text);
+						const ansi = ev.data.valueOf(),
+							keys = nodejsTerminalAnsi.parseKeys(ansi);
 
-						let key;
-						while (key = data.shift()) {
+						while (keys.length) {
+							let key = keys.shift();
 							if (!types.get(this.options, 'ignoreCtrlC', false) && (key.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (key.text === 'C')) { // CTRL+C
 								this.writeLine();
 								this.flush();
 								tools.abortScript();
 								break;  // <<< should not be executed
 							} else {
-								const readyEv = new doodad.Event(key);
-								this.onReady(readyEv);
-								if (!readyEv.prevent) {
-									if (this.__stdinBuffer.length < this.options.bufferSize) {
-										this.__stdinBuffer.push(key);
-									} else {
-										data.unshift(key);
-										break;
-									};
-								};
+								this.push(key, {output: false, transformed: true});
 							};
 						};
 						
-						if (!data.length) {
+						if (!keys.length) {
 							ev.preventDefault();
 						};
 					}),
@@ -372,6 +360,7 @@
 								stdout: this,
 								stderr: this,
 							});
+							this.onListen(new doodad.Event());
 						};
 					}),
 					stopListening: doodad.OVERRIDE(function stopListening() {
@@ -387,6 +376,7 @@
 							__Internal__.oldStdErr = null;
 							this.stdin.onReady.detach(this, this.__onStdInReady);
 							this.stdin.stopListening();
+							this.onStopListening(new doodad.Event());
 						};
 					}),
 					
@@ -414,10 +404,6 @@
 					reset: doodad.OVERRIDE(function reset() {
 						this._super();
 
-						this.__stdinBuffer = [];
-						this.__stdoutBuffer = [];
-						this.__stderrBuffer = [];
-
 						this.resetPosition();
 					}),
 
@@ -426,65 +412,7 @@
 						
 						this.resetPosition();
 					}),
-					
-					read: doodad.OVERRIDE(function read(/*optional*/options) {
-						const count = types.get(options, 'count');
 
-						if (root.DD_ASSERT) {
-							root.DD_ASSERT(types.isNothing(count) || types.isInteger(count), "Invalid count.");
-						};
-
-						if (types.isNothing(count)) {
-							return this.__stdinBuffer.shift();
-						} else {
-							return this.__stdinBuffer.splice(0, count);
-						};
-					}),
-
-					getCount: doodad.OVERRIDE(function getCount(/*optional*/options) {
-						return this.__stdinBuffer.length;
-					}),
-					
-					write: doodad.OVERRIDE(function write(ansi, /*optional*/options) {
-						ansi = types.toString(ansi);
-						
-						let data = {
-							raw: ansi,
-							options: options,
-						};
-						data = this.transform(data, options) || data;
-						
-						this.onWrite(new doodad.Event(data));
-						
-						const getBuffer = function getBuffer() {
-							return ((this.stderr !== this.stdout) && types.get(options, 'isError', false) ? this.__stderrBuffer : this.__stdoutBuffer);
-						};
-						
-						const buffer = getBuffer.apply(this),
-							bufferSize = this.options.bufferSize,
-							callback = types.get(options, 'callback');
-						
-						if (this.options.autoFlush) {
-							buffer.push(data);
-							if ((data.raw === io.EOF) || (buffer.length >= bufferSize)) {
-								this.flush({
-									callback: callback,
-								});
-							} else {
-								if (callback) {
-									callback();
-								};
-							};
-						} else if (buffer.length < bufferSize) {
-							buffer.push(data);
-							if (callback) {
-								callback();
-							};
-						} else {
-							throw new types.BufferOverflow();
-						};
-					}),
-					
 					calculateTextDims: doodad.PROTECTED(function calculateTextDims(text, /*optional*/options) {
 						text = nodejsTerminalAnsi.toText(text);
 						
@@ -495,9 +423,8 @@
 							rows = 0;
 							
 						for (let i = 0; i < linesLen; i++) {
-							const line = lines[i];
-							
-							const lineLen = unicode.charsCount(line);
+							const line = lines[i],
+								lineLen = unicode.charsCount(line);
 							if (lineLen) {
 								rows += __Natives__.mathFloor(lineLen / this.__columns);
 								columns = (lineLen % this.__columns);
@@ -509,7 +436,7 @@
 							columns: columns,
 						};
 					}),
-					
+
 					writeText: doodad.REPLACE(function writeText(text, /*optional*/options) {
 						text = nodejsTerminalAnsi.toText(text);
 
@@ -526,30 +453,13 @@
 						this.write(text, options);
 					}),
 
-					flush: doodad.OVERRIDE(function flush(/*optional*/options) {
-						const callback = types.get(options, 'callback');
-						
-						function __flush(stream, buffer, /*optional*/callback) {
-							let ansi = '';
-							while (buffer.length) {
-								const data = buffer.shift();
-								if (data.raw !== io.EOF) {
-									ansi += data.valueOf();
-								};
-							};
-							stream.write(ansi, types.extend({}, options, {callback: callback}));
+					onFlushData: doodad.OVERRIDE(function onFlushData(ev) {
+						var retval = this._super(ev);
+						if (ev.data.raw !== io.EOF) {
+							const stream = (types.get(ev.data.options, 'isError') ? this.stderr : this.stdout);
+							stream.write(ev.data.valueOf(), options);
 						};
-						
-						__flush(this.stdout, this.__stdoutBuffer, new doodad.Callback(this, function() {
-							__flush(this.stderr, this.__stderrBuffer, new doodad.Callback(this, function() {
-								this.onFlush(new doodad.Event({
-									options: options,
-								}));
-								if (callback) {
-									callback();
-								};
-							}));
-						}));
+						return retval;
 					}),
 					
 					consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
@@ -559,6 +469,11 @@
 						};
 						if (this.__consoleWritesCount[writesName] === this.options.writesLimit) {
 							args = ["... (console writes limit reached)"];
+						};
+						let callback = types.get(options, 'callback');
+						if (callback) {
+							const cbObj = types.get(options, 'callbackObj');
+							callback = new doodad.Callback(cbObj, callback);
 						};
 						if (this.__consoleWritesCount[writesName] <= this.options.writesLimit) {
 							const msg = nodeUtil.format.apply(nodeUtil, args)
@@ -597,12 +512,19 @@
 								ansi += nodejsTerminalAnsi.Colors.Normal[1];
 							};
 							
-							this.write(ansi, options);
-							this.flush();
-							
-							this.refresh();
+							this.write(ansi, types.extend(options, {callbackObj: this, callback: function(err1) {
+								this.flush(types.extend(options, {callbackObj: this, callback: function(err2) {
+									if (callback) {
+										callback(err1 || err2);
+									};
+									this.refresh();
+								}}));
+							}}));
 							
 							return msg;
+							
+						} else if (callback) {
+							callback(err);
 						};
 					}),
 					
@@ -819,6 +741,10 @@
 						if (qcb) {
 							// Previous question cancelled.
 							qcb('');
+						};
+						if (callback) {
+							const cbObj = types.get(options, 'callbackObj');
+							callback = new doodad.Callback(cbObj, callback);
 						};
 						this.__questionMode = true;
 						this.__question = question;
