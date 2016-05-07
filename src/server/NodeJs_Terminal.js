@@ -181,8 +181,8 @@
 							let name = entries[k];
 							
 							const regEx = keyboard[name];
-							regEx.lastIndex = pos;
-							const match = regEx.exec(ansi);
+							regEx.lastIndex = 0;
+							const match = regEx.exec(ansi.slice(pos));
 							if (match) {
 								size = match[0].length;
 								name = name.split('_');
@@ -524,7 +524,7 @@
 							return msg;
 							
 						} else if (callback) {
-							callback(err);
+							callback();
 						};
 					}),
 					
