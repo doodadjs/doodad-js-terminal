@@ -130,7 +130,7 @@
 										let chr = exclude[j];
 										if (types.isString(chr)) {
 											chr = chr.split('-');
-											regExp += tools.escapeRegExp(String.fromCharCode(parseInt(chr[0]))) + '-' + tools.escapeRegExp(String.fromCharCode(parseInt(chr[1])));
+											regExp += tools.escapeRegExp(String.fromCharCode(types.toInteger(chr[0]))) + '-' + tools.escapeRegExp(String.fromCharCode(types.toInteger(chr[1])));
 										} else if (types.isInteger(chr)) {
 											regExp += tools.escapeRegExp(String.fromCharCode(chr));
 										};
@@ -139,7 +139,7 @@
 								};
 							} else if (types.isString(chr)) {
 								chr = chr.split('-');
-								regExp += '[' + tools.escapeRegExp(String.fromCharCode(parseInt(chr[0]))) + '-' + tools.escapeRegExp(String.fromCharCode(parseInt(chr[1]))) + ']';
+								regExp += '[' + tools.escapeRegExp(String.fromCharCode(types.toInteger(chr[0]))) + '-' + tools.escapeRegExp(String.fromCharCode(types.toInteger(chr[1]))) + ']';
 							} else if (types.isInteger(chr)) {
 								chr = String.fromCharCode(chr);
 								regExp += '[' + tools.escapeRegExp(chr) + ']';
@@ -464,7 +464,7 @@
 					
 					consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
 						const writesName = (name === 'error' ? name : 'log');
-						if (!types.hasKey(this.__consoleWritesCount, writesName)) {
+						if (!types.has(this.__consoleWritesCount, writesName)) {
 							this.__consoleWritesCount[writesName] = 0;
 						};
 						if (this.__consoleWritesCount[writesName] === this.options.writesLimit) {
@@ -596,16 +596,16 @@
 					
 					// Console hook
 					info: doodad.OVERRIDE(ioInterfaces.IConsole, function info(raw, /*optional*/options) {
-						this.__host.consoleWrite('info', [raw], options);
+						this[doodad.HostSymbol].consoleWrite('info', [raw], options);
 					}),
 					warn: doodad.OVERRIDE(ioInterfaces.IConsole, function warn(raw, /*optional*/options) {
-						this.__host.consoleWrite('warn', [raw], options);
+						this[doodad.HostSymbol].consoleWrite('warn', [raw], options);
 					}),
 					error: doodad.OVERRIDE(ioInterfaces.IConsole, function error(raw, /*optional*/options) {
-						this.__host.consoleWrite('error', [raw], options);
+						this[doodad.HostSymbol].consoleWrite('error', [raw], options);
 					}),
 					log: doodad.OVERRIDE(ioInterfaces.IConsole, function log(raw, /*optional*/options) {
-						this.__host.consoleWrite('log', [raw], options);
+						this[doodad.HostSymbol].consoleWrite('log', [raw], options);
 					}),
 				}));
 
@@ -1047,7 +1047,7 @@
 						try {
 							ansi = nodeUtil.inspect(err || value, {colors: !err});
 						} catch(ex) {
-							if (ex instanceof types.ScriptAbortedError) {
+							if (ex instanceof types.ScriptInterruptedError) {
 								throw ex;
 							};
 							err = true;
@@ -1077,7 +1077,7 @@
 								result = result(command);
 							};
 						} catch(ex) {
-							if (ex instanceof types.ScriptAbortedError) {
+							if (ex instanceof types.ScriptInterruptedError) {
 								throw ex;
 							};
 							result = ex;
@@ -1087,7 +1087,7 @@
 						try {
 							text = nodeUtil.inspect(result, {colors: !failed, customInspect: true});
 						} catch(ex) {
-							if (ex instanceof types.ScriptAbortedError) {
+							if (ex instanceof types.ScriptInterruptedError) {
 								throw ex;
 							};
 							failed = true;
