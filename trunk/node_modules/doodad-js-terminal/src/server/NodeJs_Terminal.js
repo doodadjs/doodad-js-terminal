@@ -44,7 +44,7 @@
 			version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE() */,
 			namespaces: ['Ansi'],
 			
-			create: function create(root, /*optional*/_options) {
+			create: function create(root, /*optional*/_options, _shared) {
 				"use strict";
 
 				// TODO: Fix Unicode cursor movements
@@ -80,7 +80,7 @@
 					osType: tools.getOS().type,
 				};
 				
-				const __Natives__ = {
+				types.complete(_shared.Natives, {
 					mathFloor: global.Math.floor,
 					mathMin: global.Math.min,
 					mathMax: global.Math.max,
@@ -88,7 +88,7 @@
 					mathSign: global.Math.sign,
 					
 					stringFromCharCode: String.fromCharCode,
-				};
+				});
 				
 				nodejsTerminalAnsi.Keyboard = null;
 				nodejsTerminalAnsi.Colors = null;
@@ -296,7 +296,7 @@
 								types._instanceof(attrs.stderr, nodejsIO.TextOutputStream), 
 							"Invalid 'stdin', 'stdout' or 'stderr'."
 						);
-						types.setAttributes(this, attrs);
+						_shared.setAttributes(this, attrs);
 
 						types.getDefault(options, 'writesLimit', 40)
 						
@@ -388,7 +388,7 @@
 						this.__savedRow = this.__row;
 					}),
 					restoreCursor: doodad.PUBLIC(function restoreCursor() {
-						this.__column = __Natives__.mathMin(this.__savedColumn, this.__columns);
+						this.__column = _shared.Natives.mathMin(this.__savedColumn, this.__columns);
 						this.__row = this.__savedRow;
 						
 						this.write(nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
@@ -426,7 +426,7 @@
 							const line = lines[i],
 								lineLen = unicode.charsCount(line);
 							if (lineLen) {
-								rows += __Natives__.mathFloor(lineLen / this.__columns);
+								rows += _shared.Natives.mathFloor(lineLen / this.__columns);
 								columns = (lineLen % this.__columns);
 							};
 						};
@@ -446,7 +446,7 @@
 						this.__column += dims.columns;
 						
 						if (this.__column > this.__columns) {
-							this.__row += __Natives__.mathFloor(this.__column / this.__columns);
+							this.__row += _shared.Natives.mathFloor(this.__column / this.__columns);
 							this.__column = (this.__column % this.__columns);
 						};
 						
@@ -454,10 +454,13 @@
 					}),
 
 					onFlushData: doodad.OVERRIDE(function onFlushData(ev) {
-						var retval = this._super(ev);
-						if (ev.data.raw !== io.EOF) {
-							const stream = (types.get(ev.data.options, 'isError') ? this.stderr : this.stdout);
-							stream.write(ev.data.valueOf(), options);
+						const retval = this._super(ev);
+						if (ev.data.options.output) {
+							const data = ev.data.data;
+							if (data.raw !== io.EOF) {
+								const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
+								stream.write(data.valueOf(), data.options);
+							};
 						};
 						return retval;
 					}),
@@ -512,13 +515,12 @@
 								ansi += nodejsTerminalAnsi.Colors.Normal[1];
 							};
 							
-							this.write(ansi, types.extend(options, {callbackObj: this, callback: function(err1) {
-								this.flush(types.extend(options, {callbackObj: this, callback: function(err2) {
-									if (callback) {
-										callback(err1 || err2);
-									};
-									this.refresh();
-								}}));
+							this.write(ansi, options);
+							this.flush(types.extend(options, {callbackObj: this, callback: function(err) {
+								if (callback) {
+									callback(err);
+								};
+								this.refresh();
 							}}));
 							
 							return msg;
@@ -832,7 +834,7 @@
 								let columns = this.__homeColumn + dims.columns;
 								
 								if (columns > this.__columns) {
-									rows += __Natives__.mathFloor(columns / this.__columns);
+									rows += _shared.Natives.mathFloor(columns / this.__columns);
 									columns = (columns % this.__columns);
 								};
 								
@@ -1019,27 +1021,30 @@
 
 						this._super(number, options);
 						
-						const self = this,
-							locals = types.get(options, 'locals', {root: root});
+						const locals = types.get(options, 'locals', {root: root});
 
 						const commands = types.extend({}, this.__commands, types.get(options, 'commands'));
+						const self = this;
 
 						tools.forEach(commands, function(fn, name) {
-							const val = function() {return val};
-							val.inspect = function(/*paramarray*/) {
-								let result = fn.call(self, arguments);
-								if (types.isPromise(result)) {
-									result = result
-										.nodeify(new types.PromiseCallback(self, self.__printAsyncResult));
+							fn = _shared.makeInside(self, fn);
+							function createInspect(/*optional*/args) {
+								return function(/*paramarray*/) {
+									let result = fn.apply(self, args);
+									if (types.isPromise(result)) {
+										result = result
+											.nodeify(self.__printAsyncResult, self);
+									};
+									return result;
 								};
-								return result;
 							};
+							const val = function(/*paramarray*/) {return {inspect: createInspect(arguments)}};
+							val.inspect = createInspect();
 							commands[name] = val;
 						});
 						
 						this.__preparedCommands = commands;
 						this.__globals = types.extend({}, locals, commands);
-						
 					}),
 					
 					__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
@@ -1105,7 +1110,7 @@
 						this.flush();
 						if (types.isPromise(result)) {
 							result
-								.nodeify(new types.PromiseCallback(this, this.__printAsyncResult));
+								.nodeify(this.__printAsyncResult, this);
 						};
 					}),
 					
