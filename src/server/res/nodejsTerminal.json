@@ -7,10 +7,9 @@
 	"//": "",
 	"//": "---------------------------------------------------------------------------------------------",
 	"//": "",
-	"//": "    dOOdad - Object-oriented programming framework",
-	"//": "    File: ansiTerminal.json - Settings for the ANSI Terminals",
-	"//": "    Project home: https://sourceforge.net/projects/doodad-js/",
-	"//": "    Trunk: svn checkout svn://svn.code.sf.net/p/doodad-js/code/trunk doodad-js-code",
+	"//": "    doodad-js  -  Object-oriented programming framework",
+	"//": "    File: nodejsTerminal.json - Settings for the ANSI Terminals",
+	"//": "    Project home: https://github.com/doodadjs/",
 	"//": "    Author: Claude Petit, Quebec city",
 	"//": "    Contact: doodadjs [at] gmail.com",
 	"//": "    Note: I'm still in alpha-beta stage, so expect to find some bugs or incomplete parts !",
@@ -283,7 +282,23 @@
 			"//": ""
 		},
 
+		"styles": {
+			"None": "\u001B[0m",
+			"Bold": "\u001B[1m",
+			"Blink": "\u001B[5m",
+			"Reverse": "\u001B[7m",
+			"Invisible": "\u001B[8m",
+			"BoldBlink": "\u001B[1;5m",
+			"BoldBlinkReverse": "\u001B[1;5;7m",
+			"BoldReverse": "\u001B[1;7m",
+			"BlinkReverse": "\u001B[5;7m",
+
+			"//": ""
+		},
+
 		"simpleCommands": {
+			"RequestDeviceAttributes": "\u001B[0c",
+			"RequestCursorPosition": "\u001B[6n",
 			"Erase": " ",
 			"CursorUp": "\u001B[A",
 			"CursorDown": "\u001B[B",
@@ -296,7 +311,11 @@
 			"EraseLine": "\u001B[2K",
 			"EraseBelow": "\u001B[J",
 			"ScrollScreen": "\u001B[r",
-			
+			"HideCursor": "\u001B[?25l",
+			"ShowCursor": "\u001B[?25h",
+			"CursorBlock": "\u001B[1;5m\u2588\u001B[0m",
+			"CursorUnderline": "\u001B[1;5m\u2584\u001B[0m",
+
 			"//": ""
 		},
 		

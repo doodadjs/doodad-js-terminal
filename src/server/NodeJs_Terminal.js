@@ -1,8 +1,9 @@
+//! BEGIN_MODULE()
+
 //! REPLACE_BY("// Copyright 2016 Claude Petit, licensed under Apache License version 2.0\n", true)
-// dOOdad - Object-oriented programming framework
+// doodad-js - Object-oriented programming framework
 // File: NodeJs_Terminal.js - NodeJs Terminal
-// Project home: https://sourceforge.net/projects/doodad-js/
-// Trunk: svn checkout svn://svn.code.sf.net/p/doodad-js/code/trunk doodad-js-code
+// Project home: https://github.com/doodadjs/
 // Author: Claude Petit, Quebec city
 // Contact: doodadjs [at] gmail.com
 // Note: I'm still in alpha-beta stage, so expect to find some bugs or incomplete parts !
@@ -23,25 +24,11 @@
 //	limitations under the License.
 //! END_REPLACE()
 
-(function() {
-	const global = this;
-
-	const exports = {};
-	
-	//! BEGIN_REMOVE()
-	if ((typeof process === 'object') && (typeof module === 'object')) {
-	//! END_REMOVE()
-		//! IF_DEF("serverSide")
-			module.exports = exports;
-		//! END_IF()
-	//! BEGIN_REMOVE()
-	};
-	//! END_REMOVE()
-	
-	exports.add = function add(DD_MODULES) {
+module.exports = {
+	add: function add(DD_MODULES) {
 		DD_MODULES = (DD_MODULES || {});
 		DD_MODULES['Doodad.NodeJs.Terminal'] = {
-			version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE() */,
+			version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE()*/,
 			namespaces: ['Ansi'],
 			
 			create: function create(root, /*optional*/_options, _shared) {
@@ -86,12 +73,11 @@
 					mathMax: global.Math.max,
 					mathAbs: global.Math.abs,
 					mathSign: global.Math.sign,
-					
-					stringFromCharCode: String.fromCharCode,
 				});
 				
 				nodejsTerminalAnsi.Keyboard = null;
 				nodejsTerminalAnsi.Colors = null;
+				nodejsTerminalAnsi.Styles = null;
 				nodejsTerminalAnsi.NewLine = null;
 				nodejsTerminalAnsi.SimpleCommands = null;
 				
@@ -270,8 +256,10 @@
 					stdout: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					stderr: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					
-					__listening: doodad.PROTECTED(false),
-					
+					__interrogate: doodad.PROTECTED(false),
+					__interrogateTimeoutId: doodad.PROTECTED(null),
+					__interrogateCallback: doodad.PROTECTED(null),
+
 					__column: doodad.PROTECTED(0),
 					__row: doodad.PROTECTED(0),
 					__columns: doodad.PROTECTED(0),
@@ -322,35 +310,13 @@
 						this._super();
 					}),
 					
-					__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
-						const ansi = ev.data.valueOf(),
-							keys = nodejsTerminalAnsi.parseKeys(ansi);
-
-						while (keys.length) {
-							let key = keys.shift();
-							if (!types.get(this.options, 'ignoreCtrlC', false) && (key.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (key.text === 'C')) { // CTRL+C
-								this.writeLine();
-								this.flush();
-								tools.abortScript();
-								break;  // <<< should not be executed
-							} else {
-								this.push(key, {output: false, transformed: true});
-							};
-						};
-						
-						if (!keys.length) {
-							ev.preventDefault();
-						};
+					beforeQuit: doodad.PROTECTED(function quit() {
+						this.writeLine();
+						this.flush();
 					}),
 					
-					isListening: doodad.OVERRIDE(function isListening() {
-						return this.__listening;
-					}),
-					listen: doodad.OVERRIDE(function listen(/*optional*/options) {
-						if (!this.__listening) {
-							this.__listening = true;
-							this.stdin.onReady.attach(this, this.__onStdInReady);
-							this.stdin.listen(options);
+					__onStdInListen: doodad.PROTECTED(function onStdInListen(ev) {
+						function listenInternal() {
 							__Internal__.currentTerminal = this;
 							__Internal__.oldStdIn = io.stdin;
 							__Internal__.oldStdOut = io.stdout;
@@ -360,23 +326,106 @@
 								stdout: this,
 								stderr: this,
 							});
-							this.onListen(new doodad.Event());
+							
+							this.onListen(ev);
+						};
+						
+						const os = tools.getOS();
+						if (os.type === 'windows') {
+							// <PRB> Windows doesn't not respond.
+							tools.callAsync(listenInternal, -1, this);
+						} else {
+							this.interrogateTerminal(nodejsTerminalAnsi.SimpleCommands.RequestDeviceAttributes, function(err, response) {
+								if (err) {
+									console.warn("Terminal can't be identified.");
+								} else if (response !== '\u001B[?1;2c') {
+									console.warn("This program is optimized for a VT100 terminal with Advanced Video Option.");
+								};
+								listenInternal.call(this);
+							}, this);
+						};
+					}),
+					
+					__onStdInStopListening: doodad.PROTECTED(function(ev) {
+						this.stdin.onReady.detach(this, this.__onStdInReady);
+
+						io.setStds({
+							stdin: __Internal__.oldStdIn,
+							stdout: __Internal__.oldStdOut,
+							stderr: __Internal__.oldStdErr,
+						});
+						__Internal__.oldStdIn = null;
+						__Internal__.oldStdOut = null;
+						__Internal__.oldStdErr = null;
+					}),
+							
+					__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
+						const ansi = ev.data.valueOf();
+
+						if (this.__interrogate) {
+							const result = this.__interrogateCallback(null, ansi);
+							if (result !== false) {
+								this.__interrogate = false;
+								this.__interrogateTimeoutId.cancel();
+								this.__interrogateTimeoutId = null;
+								this.__interrogateCallback = null;
+							};
+						} else {
+							const keys = nodejsTerminalAnsi.parseKeys(ansi);
+							
+							while (keys.length) {
+								let key = keys.shift();
+								if (!types.get(this.options, 'ignoreCtrlC', false) && (key.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (key.text === 'C')) { // CTRL+C
+									this.beforeQuit();
+									tools.abortScript();
+									break;  // <<< should not be executed
+								} else {
+									this.push(key, {output: false, transformed: true});
+								};
+							};
+							
+							if (!keys.length) {
+								ev.preventDefault();
+							};
+						};
+					}),
+					
+					cancelInterrogate: doodad.PUBLIC(function cancelInterrogate(/*optional*/reason) {
+						if (!this.__interrogate) {
+							throw new types.NotAvailable();
+						};
+						this.__interrogate = false;
+						this.__interrogateTimeoutId.cancel();
+						this.__interrogateTimeoutId = null;
+						this.__interrogateCallback(reason || new types.CanceledError());
+						this.__interrogateCallback = null;
+					}),
+					
+					interrogateTerminal: doodad.PUBLIC(function interrogateTerminal(requestCommand, callback, /*optional*/thisObj, /*optional*/timeout) {
+						if (this.__interrogate) {
+							throw new types.NotAvailable();
+						};
+						this.__interrogateCallback = new doodad.Callback(thisObj, callback);
+						this.__interrogateTimeoutId = tools.callAsync(this.cancelInterrogate, timeout || 1000, this, [new types.TimeoutError()], true);
+						this.write(requestCommand);
+						this.flush();
+						this.__interrogate = true;
+					}),
+					
+					isListening: doodad.OVERRIDE(function isListening() {
+						return !!this.stdin && this.stdin.isListening();
+					}),
+					listen: doodad.OVERRIDE(function listen(/*optional*/options) {
+						if (!this.isListening()) {
+							this.stdin.onListen.attach(this, this.__onStdInListen);
+							this.stdin.onStopListening.attach(this, this.__onStdInStopListening);
+							this.stdin.onReady.attach(this, this.__onStdInReady);
+							this.stdin.listen(options);
 						};
 					}),
 					stopListening: doodad.OVERRIDE(function stopListening() {
-						if (this.__listening) {
-							this.__listening = false;
-							io.setStds({
-								stdin: __Internal__.oldStdIn,
-								stdout: __Internal__.oldStdOut,
-								stderr: __Internal__.oldStdErr,
-							});
-							__Internal__.oldStdIn = null;
-							__Internal__.oldStdOut = null;
-							__Internal__.oldStdErr = null;
-							this.stdin.onReady.detach(this, this.__onStdInReady);
+						if (this.isListening()) {
 							this.stdin.stopListening();
-							this.onStopListening(new doodad.Event());
 						};
 					}),
 					
@@ -473,11 +522,7 @@
 						if (this.__consoleWritesCount[writesName] === this.options.writesLimit) {
 							args = ["... (console writes limit reached)"];
 						};
-						let callback = types.get(options, 'callback');
-						if (callback) {
-							const cbObj = types.get(options, 'callbackObj');
-							callback = new doodad.Callback(cbObj, callback);
-						};
+						const callback = types.get(options, 'callback');
 						if (this.__consoleWritesCount[writesName] <= this.options.writesLimit) {
 							const msg = nodeUtil.format.apply(nodeUtil, args)
 							
@@ -516,12 +561,12 @@
 							};
 							
 							this.write(ansi, options);
-							this.flush(types.extend(options, {callbackObj: this, callback: function(err) {
+							this.flush(types.extend(options, {callback: new doodad.Callback(this, function(err) {
 								if (callback) {
 									callback(err);
 								};
 								this.refresh();
-							}}));
+							})}));
 							
 							return msg;
 							
@@ -564,8 +609,6 @@
 								ev.preventDefault();
 								this._super(ev);
 							} else if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'H')) { // Backspace
-								//this.write('\x1B[6n');  // Report Cursor Position
-								//this.write('\x1B?6n');  // Report Cursor Position
 								if (this.__column > 1) {
 									this.write(nodejsTerminalAnsi.SimpleCommands.CursorLeft + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.CursorLeft);
 									this.flush();
@@ -638,17 +681,17 @@
 							return types.get(this.options, 'help', "Type 'quit', 'exit' or history'");
 						},
 						quit: function() {
+							this.beforeQuit();
 							tools.abortScript();
 						},
 						exit: function() {
+							this.beforeQuit();
 							tools.abortScript();
 						},
 						history: function() {
 							return types.items(types.clone(this.__commandsHistory).reverse());
 						},
 					}, extenders.ExtendObject)),
-					
-					// <PRB> Since ?????, the cursor behaves differently
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 						this._super(number, options);
@@ -658,6 +701,68 @@
 						if (historySize > 0) {
 							this.__commandsHistory = [];
 						};
+					}),
+
+					beforeQuit: doodad.OVERRIDE(function quit() {
+						this.eraseCursor();
+						this._super();
+						this.write(nodejsTerminalAnsi.SimpleCommands.ShowCursor);
+						this.flush();
+					}),
+
+					printCursor: doodad.PROTECTED(function printCursor() {
+						// FIXME: Cursor at end of line
+		/*
+						const chr = unicode.nextChar(this.__command, this.__commandIndex);
+						this.write(
+							nodejsTerminalAnsi.SimpleCommands.HideCursor +
+							nodejsTerminalAnsi.SimpleCommands.SaveCursor
+						);
+						if (this.__insertMode) {
+							this.write(
+								((chr && !unicode.isSpace(chr.chr)) ? 
+									nodejsTerminalAnsi.Styles.BoldBlinkReverse + chr.chr + nodejsTerminalAnsi.Styles.None 
+									: 
+									nodejsTerminalAnsi.SimpleCommands.CursorBlock
+								)
+							);
+						} else {
+							this.write(
+								((chr && !unicode.isSpace(chr.chr)) ? 
+									nodejsTerminalAnsi.Styles.BoldBlink + chr.chr + nodejsTerminalAnsi.Styles.None 
+									: 
+									nodejsTerminalAnsi.SimpleCommands.CursorUnderline
+								)
+							);
+						};
+						this.write(
+							nodejsTerminalAnsi.SimpleCommands.RestoreCursor
+						);
+						//if (__Internal__.osType === 'windows') {
+						//	if (this.__column === this.__columns) {
+						//		this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp);
+						//	};
+						//} else {
+						//		??????
+						//};
+						this.flush();
+		*/
+					}),
+					
+					eraseCursor: doodad.PROTECTED(function eraseCursor() {
+						const chr = unicode.nextChar(this.__command, this.__commandIndex);
+						this.write(
+							nodejsTerminalAnsi.SimpleCommands.SaveCursor + 
+							(chr ? chr.chr : nodejsTerminalAnsi.SimpleCommands.Erase) + 
+							nodejsTerminalAnsi.SimpleCommands.RestoreCursor
+						);
+						this.flush();
+					}),
+					
+					writeLine: doodad.OVERRIDE(function writeLine(text, /*optional*/options) {
+						this.eraseCursor();
+						
+						this._super(text, options);
 					}),
 					
 					printPrompt: doodad.PROTECTED(function printPrompt() {
@@ -682,6 +787,7 @@
 						this._super(options);
 						
 						this.printPrompt();
+						this.printCursor();
 					}),
 
 					saveCursor: doodad.OVERRIDE(function saveCursor() {
@@ -729,6 +835,7 @@
 						this._super();
 						
 						this.printPrompt();
+						this.printCursor();
 						
 						if (this.__command) {
 							this.writeText(this.__command);
@@ -739,14 +846,13 @@
 					}),
 
 					ask: doodad.PUBLIC(function ask(question, callback, /*optional*/options) {
+						if (this.__questionMode) {
+							throw new types.NotAvailable();
+						};
 						const qcb = this.__questionMode && this.__questionCallback;
 						if (qcb) {
 							// Previous question cancelled.
 							qcb('');
-						};
-						if (callback) {
-							const cbObj = types.get(options, 'callbackObj');
-							callback = new doodad.Callback(cbObj, callback);
 						};
 						this.__questionMode = true;
 						this.__question = question;
@@ -777,6 +883,7 @@
 						} else {
 							const data = ev.data;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
+								this.eraseCursor();
 								const command = this.__command;
 								this.__command = '';
 								this.__commandLen = 0;
@@ -789,15 +896,18 @@
 										qcb(command);
 									};
 								} else if (command) {
-									this.addCommandHistory(command);
-									this.runCommand(command);
+									const cmd = command.trim();
+									this.addCommandHistory(cmd);
+									this.runCommand(cmd);
 								};
 								this._super(ev);
 								this.reset();
 								this.printPrompt();
+								this.printCursor();
 							} else if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'H')) { // Backspace
 								const chr = unicode.prevChar(this.__command, this.__commandIndex);
 								if (chr) {
+									this.eraseCursor();
 									const end = this.__command.slice(this.__commandIndex);
 									this.__command = this.__command.slice(0, this.__commandIndex - chr.size) + end;
 									this.__commandLen--;
@@ -807,11 +917,14 @@
 										this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
 										this.flush();
 									};
+									this.printCursor();
 								} else {
 									ev.preventDefault();
 									this._super(ev);
 								};
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Home)) {  // Home
+								this.eraseCursor();
+
 								const moveUpCount = this.__row - this.__homeRow;
 								this.write(	
 									(moveUpCount > 0 ? tools.format("\u001B[~0~A", [moveUpCount]) : '') + // CursorUp X Times
@@ -824,10 +937,14 @@
 								this.__row = this.__homeRow;
 								this.__commandIndex = 0;
 								
+								this.printCursor();
+
 								ev.preventDefault();
 								this._super(ev);
 								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.End)) {  // End
+								this.eraseCursor();
+
 								const dims = this.calculateTextDims(this.__command);
 								
 								let rows = this.__homeRow + dims.rows;
@@ -849,12 +966,15 @@
 								this.__row = rows;
 								this.__commandIndex = this.__command.length;
 								
+								this.printCursor();
+
 								ev.preventDefault();
 								this._super(ev);
 								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.LeftArrow)) {  // Left Arrow
 								const chr = unicode.prevChar(this.__command, this.__commandIndex);
 								if (chr) {
+									this.eraseCursor();
 									if (this.__column <= 1) {
 										if (this.__row > 1) {
 											this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp + nodejsTerminalAnsi.SimpleCommands.CursorEnd);
@@ -867,12 +987,14 @@
 									};
 									this.__commandIndex -= chr.size;
 									this.flush();
+									this.printCursor();
 								};
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.RightArrow)) {  // Right Arrow
 								const chr = unicode.nextChar(this.__command, this.__commandIndex);
 								if (chr) {
+									this.eraseCursor();
 									if (this.__column >= this.__columns) {
 										this.write(nodejsTerminalAnsi.SimpleCommands.CursorDown + nodejsTerminalAnsi.SimpleCommands.CursorHome);
 										this.__column = 1;
@@ -883,12 +1005,14 @@
 									};
 									this.__commandIndex += chr.size;
 									this.flush();
+									this.printCursor();
 								};
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.UpArrow)) {  // Up Arrow
 								if (this.__commandsHistory && !this.__questionMode) {
 									if (this.__commandsHistoryIndex + 1 < this.__commandsHistory.length) {
+										this.eraseCursor();
 										if ((this.__commandsHistoryIndex <= 0) && (this.__command)) {
 											this.addCommandHistory(this.__command, (this.__commandsHistoryIndex === 0));
 											this.__commandsHistoryIndex = 0;
@@ -905,12 +1029,14 @@
 										this.__commandIndex = this.__command.length;
 										this.writeText(this.__command);
 										this.flush();
+										this.printCursor();
 									};
 								};
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.DownArrow)) {  // Down Arrow
 								if (this.__commandsHistory && !this.__questionMode) {
+									this.eraseCursor();
 									if ((this.__commandsHistoryIndex <= 0) && (this.__command)) {
 										this.addCommandHistory(this.__command, (this.__commandsHistoryIndex === 0));
 										this.__commandsHistoryIndex = 0;
@@ -922,6 +1048,7 @@
 									this.flush();
 									this.reset();
 									this.printPrompt();
+									this.printCursor();
 									if (this.__commandsHistory) {
 										if (this.__commandsHistoryIndex - 1 >= 0) {
 											this.__commandsHistoryIndex--;
@@ -938,16 +1065,19 @@
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Insert)) {  // Insert
 								this.__insertMode = !this.__insertMode;
+								this.printCursor();
 								ev.preventDefault();
 								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Delete)) {  // Delete
 								const chr = unicode.nextChar(this.__command, this.__commandIndex);
 								if (chr) {
+									this.eraseCursor();
 									const end = this.__command.slice(this.__commandIndex + chr.size);
 									this.__command = this.__command.slice(0, this.__commandIndex) + end;
 									this.__commandLen--;
 									this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + tools.repeat(nodejsTerminalAnsi.SimpleCommands.Erase, chr.size) + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
 									this.flush();
+									this.printCursor();
 								};
 								ev.preventDefault();
 								this._super(ev);
@@ -985,6 +1115,7 @@
 										};
 									};
 									this.flush();
+									this.printCursor();
 								};
 								
 								ev.preventDefault();
@@ -1027,7 +1158,7 @@
 						const self = this;
 
 						tools.forEach(commands, function(fn, name) {
-							fn = _shared.makeInside(self, fn);
+							fn = _shared.makeInside(self, fn, _shared.SECRET);
 							function createInspect(/*optional*/args) {
 								return function(/*paramarray*/) {
 									let result = fn.apply(self, args);
@@ -1038,8 +1169,9 @@
 									return result;
 								};
 							};
-							const val = function(/*paramarray*/) {return {inspect: createInspect(arguments)}};
-							val.inspect = createInspect();
+							const inspectSymbol = nodejs.getCustomInspectSymbol();
+							const val = function(/*paramarray*/) {return {[inspectSymbol]: createInspect(arguments)}};
+							val[inspectSymbol] = createInspect();
 							commands[name] = val;
 						});
 						
@@ -1095,8 +1227,9 @@
 							if (ex instanceof types.ScriptInterruptedError) {
 								throw ex;
 							};
+							result = ex;
 							failed = true;
-							text = nodeUtil.inspect(ex);
+							text = nodeUtil.inspect(ex, {colors: false});
 						};
 						if (failed) {
 							this.write(nodejsTerminalAnsi.Colors.Red[0]);
@@ -1122,6 +1255,7 @@
 						nodejsTerminalAnsi.Keyboard = nodejsTerminalAnsi.computeKeyboard(data.keyboard);
 						nodejsTerminalAnsi.NewLine = data.newLine;
 						nodejsTerminalAnsi.Colors = data.colors;
+						nodejsTerminalAnsi.Styles = data.styles;
 						nodejsTerminalAnsi.EnterKey = data.enterKey;
 						const cursorEnd = nodejsTerminalAnsi.SimpleCommands && nodejsTerminalAnsi.SimpleCommands.CursorEnd;
 						nodejsTerminalAnsi.SimpleCommands = data.simpleCommands;
@@ -1135,8 +1269,8 @@
 				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
 					//return modules.locate('doodad-js-terminal').then(function (location) {
 						const path = files.Path.parse(module.filename).set({file: ''}).combine('./res/nodejsTerminal.json', {os: 'linux'});
-						//return config.loadFile(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
-						return config.loadFile(path, { async: true, watch: true, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
+						//return config.load(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
+						return config.load(path, { async: true, watch: true, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
 					//});
 				};
 
@@ -1146,27 +1280,7 @@
 				};
 			},
 		};
-		
 		return DD_MODULES;
-	};
-	
-	//! BEGIN_REMOVE()
-	if ((typeof process !== 'object') || (typeof module !== 'object')) {
-	//! END_REMOVE()
-		//! IF_UNDEF("serverSide")
-			// <PRB> export/import are not yet supported in browsers
-			global.DD_MODULES = exports.add(global.DD_MODULES);
-		//! END_IF()
-	//! BEGIN_REMOVE()
-	};
-	//! END_REMOVE()
-}).call(
-	//! BEGIN_REMOVE()
-	(typeof window !== 'undefined') ? window : ((typeof global !== 'undefined') ? global : this)
-	//! END_REMOVE()
-	//! IF_DEF("serverSide")
-	//! 	INJECT("global")
-	//! ELSE()
-	//! 	INJECT("window")
-	//! END_IF()
-);
+	},
+};
+//! END_MODULE()
