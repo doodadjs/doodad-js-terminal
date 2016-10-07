@@ -505,7 +505,7 @@ module.exports = {
 					onFlushData: doodad.OVERRIDE(function onFlushData(ev) {
 						const retval = this._super(ev);
 						if (ev.data.options.output) {
-							const data = ev.data.data;
+							const data = ev.data;
 							if (data.raw !== io.EOF) {
 								const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
 								stream.write(data.valueOf(), data.options);
