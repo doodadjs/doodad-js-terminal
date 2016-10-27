@@ -502,15 +502,17 @@ module.exports = {
 						this.write(text, options);
 					}),
 
-					onFlushData: doodad.OVERRIDE(function onFlushData(ev) {
+					onWrite: doodad.OVERRIDE(function onWrite(ev) {
 						const retval = this._super(ev);
-						if (ev.data.options.output) {
-							const data = ev.data;
-							if (data.raw !== io.EOF) {
-								const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
-								stream.write(data.valueOf(), data.options);
-							};
+
+						ev.preventDefault();
+
+						const data = ev.data;
+						if (data.raw !== io.EOF) {
+							const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
+							stream.write(data.valueOf(), data.options);
 						};
+
 						return retval;
 					}),
 					
