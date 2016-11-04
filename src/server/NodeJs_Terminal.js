@@ -267,7 +267,7 @@ module.exports = {
 					__savedColumn: doodad.PROTECTED(0),
 					__savedRow: doodad.PROTECTED(0),
 					
-					__consoleWritesCount: doodad.PROTECTED(null),
+					__consoleWritesCount: doodad.PROTECTED(0),
 					__consoleWritesIntervalId: doodad.PROTECTED(null),
 					
 					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
@@ -286,19 +286,12 @@ module.exports = {
 						);
 						_shared.setAttributes(this, attrs);
 
-						types.getDefault(options, 'writesLimit', 40)
+						types.getDefault(options, 'writesLimit', 50);
 						
 						this._super(options);
 
 						this.onStreamResize.attach(this.stdout.stream);
 						this.setColumns();
-						this.__consoleWritesCount = {};
-						this.__consoleWritesIntervalId = setInterval(new doodad.Callback(this, function() {
-							const self = this;
-							tools.forEach(this.__consoleWritesCount, function(count, name) {
-								self.__consoleWritesCount[name] = 0;
-							});
-						}), 2000);
 					}),
 					destroy: doodad.OVERRIDE(function destroy() {
 						this.stopListening();
@@ -405,7 +398,7 @@ module.exports = {
 						if (this.__interrogate) {
 							throw new types.NotAvailable();
 						};
-						this.__interrogateCallback = new doodad.Callback(thisObj, callback);
+						this.__interrogateCallback = doodad.Callback(thisObj, callback);
 						this.__interrogateTimeoutId = tools.callAsync(this.cancelInterrogate, timeout || 1000, this, [new types.TimeoutError()], true);
 						this.write(requestCommand);
 						this.flush();
@@ -454,6 +447,31 @@ module.exports = {
 						this._super();
 
 						this.resetPosition();
+
+						this.__consoleWritesCount = 0;
+
+						if (this.__consoleWritesIntervalId) {
+							global.clearTimeout(this.__consoleWritesIntervalId);
+							this.__consoleWritesIntervalId = null;
+						};
+
+						let timeoutCb;
+						const __timeout = function timeout() {
+							this.__consoleWritesIntervalId = global.setTimeout(doodad.Callback(this, function() {
+								if (!this.isDestroyed()) {
+									if (this.__consoleWritesCount > 0) {
+										this.flush();
+										this.refresh();
+									};
+									this.__consoleWritesCount = 0;
+									timeoutCb();
+								};
+							}), 2000);
+						};
+
+						timeoutCb = doodad.Callback(this, __timeout);
+
+						__timeout.call(this);
 					}),
 
 					clear: doodad.OVERRIDE(function clear() {
@@ -517,18 +535,19 @@ module.exports = {
 					}),
 					
 					consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
-						const writesName = (name === 'error' ? name : 'log');
-						if (!types.has(this.__consoleWritesCount, writesName)) {
-							this.__consoleWritesCount[writesName] = 0;
+						if (!this.canWrite()) {
+							// Too much log data, are we in a loop ?
+							return;
 						};
-						if (this.__consoleWritesCount[writesName] === this.options.writesLimit) {
+						if (this.__consoleWritesCount === this.options.writesLimit) {
+							name = 'info';
 							args = ["... (console writes limit reached)"];
 						};
 						const callback = types.get(options, 'callback');
-						if (this.__consoleWritesCount[writesName] <= this.options.writesLimit) {
+						if (this.__consoleWritesCount <= this.options.writesLimit) {
 							const msg = nodeUtil.format.apply(nodeUtil, args)
 							
-							this.__consoleWritesCount[writesName]++;
+							this.__consoleWritesCount++;
 							
 							let ansi = '';
 							
@@ -562,18 +581,19 @@ module.exports = {
 								ansi += nodejsTerminalAnsi.Colors.Normal[1];
 							};
 							
-							this.write(ansi, options);
-							this.flush(types.extend(options, {callback: new doodad.Callback(this, function(err) {
-								if (callback) {
-									callback(err);
-								};
-								this.refresh();
-							})}));
+							//this.write(ansi, {callback: doodad.Callback(this, function() {
+							//	this.flush({callback: doodad.Callback(this, function() {
+							//		callback && callback();
+							//		this.refresh();
+							//	})});
+							//})});
+
+							this.write(ansi, {callback: callback});
 							
 							return msg;
 							
-						} else if (callback) {
-							callback();
+						} else {
+							callback && callback();
 						};
 					}),
 					
@@ -1193,9 +1213,13 @@ module.exports = {
 							ansi = nodeUtil.inspect(ex);
 						};
 						if (err) {
-							this.consoleWrite('error', [ansi]);
+							this.consoleWrite('error', [ansi], {callback: doodad.Callback(this, function() {
+								this.refresh();
+							})});
 						} else {
-							this.consoleWrite('log', [ansi]);
+							this.consoleWrite('log', [ansi], {callback: doodad.Callback(this, function() {
+								this.refresh();
+							})});
 						};
 					}),
 					
