@@ -373,7 +373,10 @@ module.exports = {
 									tools.abortScript();
 									break;  // <<< should not be executed
 								} else {
-									this.push(key, {output: false, transformed: true});
+									const ev = new doodad.Event(key);
+									if (!ev.prevent) {
+										this.push(key);
+									};
 								};
 							};
 							
