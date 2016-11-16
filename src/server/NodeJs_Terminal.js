@@ -357,7 +357,7 @@ module.exports = {
 
 						if (this.__interrogate) {
 							const result = this.__interrogateCallback(null, ansi);
-							if (result !== false) {
+							if (result !== false) { // should returns 'false' if interrogate is not terminated
 								this.__interrogate = false;
 								this.__interrogateTimeoutId.cancel();
 								this.__interrogateTimeoutId = null;
@@ -373,10 +373,7 @@ module.exports = {
 									tools.abortScript();
 									break;  // <<< should not be executed
 								} else {
-									const ev = new doodad.Event(key);
-									if (!ev.prevent) {
-										this.push(key);
-									};
+									this.push(key);
 								};
 							};
 							
