@@ -65,6 +65,8 @@ module.exports = {
 					oldStdOut: null,
 					oldStdErr: null,
 					osType: tools.getOS().type,
+
+					Settings: types.nullObject(),
 				};
 				
 				types.complete(_shared.Natives, {
@@ -74,12 +76,6 @@ module.exports = {
 					mathAbs: global.Math.abs,
 					mathSign: global.Math.sign,
 				});
-				
-				nodejsTerminalAnsi.Keyboard = null;
-				nodejsTerminalAnsi.Colors = null;
-				nodejsTerminalAnsi.Styles = null;
-				nodejsTerminalAnsi.NewLine = null;
-				nodejsTerminalAnsi.SimpleCommands = null;
 				
 				nodejsTerminalAnsi.computeKeyboard = function computeKeyboard(keyboard) {
 					const computed = {};
@@ -148,14 +144,14 @@ module.exports = {
 				};
 				
 				nodejsTerminalAnsi.parseKeys = function parseKeys(ansi, /*optional*/pos, /*optional*/maxKeysCount) {
-					ansi = types.toString(ansi).replace(/(\r\n)|(\n\r)|\r|\n/gm, nodejsTerminalAnsi.EnterKey);
+					ansi = types.toString(ansi).replace(/(\r\n)|(\n\r)|\r|\n/gm, __Internal__.Settings.EnterKey);
 					
 					pos = (pos || 0);
 					maxKeysCount = (maxKeysCount || Infinity);
 					
 					const keys = [];
 
-					const keyboard = nodejsTerminalAnsi.Keyboard;
+					const keyboard = __Internal__.Settings.Keyboard;
 					const entries = types.keys(keyboard);
 
 					while ((pos < ansi.length) && (keys.length < maxKeysCount)) {
@@ -238,7 +234,7 @@ module.exports = {
 
 				nodejsTerminalAnsi.toText = function toText(ansi) {
 					ansi = types.toString(ansi);
-					ansi = ansi.replace(/(\r\n)|(\n\r)|\r|\n/gm, nodejsTerminalAnsi.NewLine);
+					ansi = ansi.replace(/(\r\n)|(\n\r)|\r|\n/gm, __Internal__.Settings.NewLine);
 					ansi = ansi.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/gm, '');
 					return ansi;
 				};
@@ -328,7 +324,7 @@ module.exports = {
 							// <PRB> Windows doesn't not respond.
 							tools.callAsync(listenInternal, -1, this);
 						} else {
-							this.interrogateTerminal(nodejsTerminalAnsi.SimpleCommands.RequestDeviceAttributes, function(err, response) {
+							this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, function(err, response) {
 								if (err) {
 									console.warn("Terminal can't be identified.");
 								} else if (response !== '\u001B[?1;2c') {
@@ -423,7 +419,7 @@ module.exports = {
 					}),
 					
 					saveCursor: doodad.PUBLIC(function saveCursor() {
-						this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor);
+						this.write(__Internal__.Settings.SimpleCommands.SaveCursor);
 						this.flush();
 						
 						this.__savedColumn = this.__column;
@@ -433,7 +429,7 @@ module.exports = {
 						this.__column = _shared.Natives.mathMin(this.__savedColumn, this.__columns);
 						this.__row = this.__savedRow;
 						
-						this.write(nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
+						this.write(__Internal__.Settings.SimpleCommands.RestoreCursor);
 						this.flush();
 					}),
 					resetPosition: doodad.PUBLIC(function resetPosition() {
@@ -483,7 +479,7 @@ module.exports = {
 					calculateTextDims: doodad.PROTECTED(function calculateTextDims(text, /*optional*/options) {
 						text = nodejsTerminalAnsi.toText(text);
 						
-						const lines = text.split(nodejsTerminalAnsi.NewLine),
+						const lines = text.split(__Internal__.Settings.NewLine),
 							linesLen = lines.length;
 							
 						let columns = 0,
@@ -553,32 +549,32 @@ module.exports = {
 							
 							ansi +=
 								(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X times
-								nodejsTerminalAnsi.SimpleCommands.EraseLine + 
-								nodejsTerminalAnsi.SimpleCommands.EraseBelow + 
-								nodejsTerminalAnsi.SimpleCommands.CursorHome;
+								__Internal__.Settings.SimpleCommands.EraseLine + 
+								__Internal__.Settings.SimpleCommands.EraseBelow + 
+								__Internal__.Settings.SimpleCommands.CursorHome;
 								
 							options = types.extend({}, this.options, options);
-							const color = nodejsTerminalAnsi.Colors[types.get(options, name + 'Color', null)];
+							const color = __Internal__.Settings.Colors[types.get(options, name + 'Color', null)];
 							if (color) {
 								ansi += color[0];
 							} else {
-								ansi += nodejsTerminalAnsi.Colors.Normal[0];
+								ansi += __Internal__.Settings.Colors.Normal[0];
 							};
-							const bgColor = nodejsTerminalAnsi.Colors[types.get(options, name + 'BgColor', null)];
+							const bgColor = __Internal__.Settings.Colors[types.get(options, name + 'BgColor', null)];
 							if (bgColor) {
 								ansi += bgColor[1];
 							} else {
-								ansi += nodejsTerminalAnsi.Colors.Normal[1];
+								ansi += __Internal__.Settings.Colors.Normal[1];
 							};
 							if ((name === 'warn') || (name === 'error') || (name === 'info')) {
 								options.isError = true;
 							};
-							ansi += msg + nodejsTerminalAnsi.NewLine;
+							ansi += msg + __Internal__.Settings.NewLine;
 							if (color) {
-								ansi += nodejsTerminalAnsi.Colors.Normal[0];
+								ansi += __Internal__.Settings.Colors.Normal[0];
 							};
 							if (bgColor) {
-								ansi += nodejsTerminalAnsi.Colors.Normal[1];
+								ansi += __Internal__.Settings.Colors.Normal[1];
 							};
 							
 							//this.write(ansi, {callback: doodad.Callback(this, function() {
@@ -600,16 +596,16 @@ module.exports = {
 					setColumns: doodad.PROTECTED(function setColumns() {
 						const newColumns = this.stdout.stream.columns;
 						this.__columns = newColumns;
-						nodejsTerminalAnsi.SimpleCommands.CursorEnd = '\x1B[' + newColumns + 'G';
+						__Internal__.Settings.SimpleCommands.CursorEnd = '\x1B[' + newColumns + 'G';
 					}),
 
 					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize() {
 						if (__Internal__.osType === 'windows') {
 							this.write(
-								nodejsTerminalAnsi.SimpleCommands.CursorScreenHome +
-								nodejsTerminalAnsi.SimpleCommands.EraseLine +
-								nodejsTerminalAnsi.SimpleCommands.EraseBelow +
-								nodejsTerminalAnsi.SimpleCommands.ScrollScreen
+								__Internal__.Settings.SimpleCommands.CursorScreenHome +
+								__Internal__.Settings.SimpleCommands.EraseLine +
+								__Internal__.Settings.SimpleCommands.EraseBelow +
+								__Internal__.Settings.SimpleCommands.ScrollScreen
 							);
 							this.flush();
 							this.setColumns();
@@ -632,14 +628,14 @@ module.exports = {
 								this._super(ev);
 							} else if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'H')) { // Backspace
 								if (this.__column > 1) {
-									this.write(nodejsTerminalAnsi.SimpleCommands.CursorLeft + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.CursorLeft);
+									this.write(__Internal__.Settings.SimpleCommands.CursorLeft + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.CursorLeft);
 									this.flush();
 									this.__column--;
 								} else if (this.__row > 1) {
 									if (__Internal__.osType === 'windows') {
-										this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp + nodejsTerminalAnsi.SimpleCommands.CursorEnd + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.CursorUp + nodejsTerminalAnsi.SimpleCommands.CursorEnd);
+										this.write(__Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd);
 									} else {
-										this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp + nodejsTerminalAnsi.SimpleCommands.CursorEnd + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.CursorEnd);
+										this.write(__Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.CursorEnd);
 									};
 									this.flush();
 									this.__column = this.__columns;
@@ -728,7 +724,7 @@ module.exports = {
 					beforeQuit: doodad.OVERRIDE(function quit() {
 						this.eraseCursor();
 						this._super();
-						this.write(nodejsTerminalAnsi.SimpleCommands.ShowCursor);
+						this.write(__Internal__.Settings.SimpleCommands.ShowCursor);
 						this.flush();
 					}),
 
@@ -737,32 +733,32 @@ module.exports = {
 		/*
 						const chr = unicode.nextChar(this.__command, this.__commandIndex);
 						this.write(
-							nodejsTerminalAnsi.SimpleCommands.HideCursor +
-							nodejsTerminalAnsi.SimpleCommands.SaveCursor
+							__Internal__.Settings.SimpleCommands.HideCursor +
+							__Internal__.Settings.SimpleCommands.SaveCursor
 						);
 						if (this.__insertMode) {
 							this.write(
 								((chr && !unicode.isSpace(chr.chr)) ? 
-									nodejsTerminalAnsi.Styles.BoldBlinkReverse + chr.chr + nodejsTerminalAnsi.Styles.None 
+									__Internal__.Settings.Styles.BoldBlinkReverse + chr.chr + __Internal__.Settings.Styles.None 
 									: 
-									nodejsTerminalAnsi.SimpleCommands.CursorBlock
+									__Internal__.Settings.SimpleCommands.CursorBlock
 								)
 							);
 						} else {
 							this.write(
 								((chr && !unicode.isSpace(chr.chr)) ? 
-									nodejsTerminalAnsi.Styles.BoldBlink + chr.chr + nodejsTerminalAnsi.Styles.None 
+									__Internal__.Settings.Styles.BoldBlink + chr.chr + __Internal__.Settings.Styles.None 
 									: 
-									nodejsTerminalAnsi.SimpleCommands.CursorUnderline
+									__Internal__.Settings.SimpleCommands.CursorUnderline
 								)
 							);
 						};
 						this.write(
-							nodejsTerminalAnsi.SimpleCommands.RestoreCursor
+							__Internal__.Settings.SimpleCommands.RestoreCursor
 						);
 						//if (__Internal__.osType === 'windows') {
 						//	if (this.__column === this.__columns) {
-						//		this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp);
+						//		this.write(__Internal__.Settings.SimpleCommands.CursorUp);
 						//	};
 						//} else {
 						//		??????
@@ -774,9 +770,9 @@ module.exports = {
 					eraseCursor: doodad.PROTECTED(function eraseCursor() {
 						const chr = unicode.nextChar(this.__command, this.__commandIndex);
 						this.write(
-							nodejsTerminalAnsi.SimpleCommands.SaveCursor + 
-							(chr ? chr.chr : nodejsTerminalAnsi.SimpleCommands.Erase) + 
-							nodejsTerminalAnsi.SimpleCommands.RestoreCursor
+							__Internal__.Settings.SimpleCommands.SaveCursor + 
+							(chr ? chr.chr : __Internal__.Settings.SimpleCommands.Erase) + 
+							__Internal__.Settings.SimpleCommands.RestoreCursor
 						);
 						this.flush();
 					}),
@@ -790,8 +786,8 @@ module.exports = {
 					printPrompt: doodad.PROTECTED(function printPrompt() {
 						this.resetPosition();
 						this.write(
-							nodejsTerminalAnsi.SimpleCommands.EraseLine +
-							nodejsTerminalAnsi.SimpleCommands.CursorHome
+							__Internal__.Settings.SimpleCommands.EraseLine +
+							__Internal__.Settings.SimpleCommands.CursorHome
 						);
 						if (this.__questionMode) {
 							this.writeText(this.__question + ' ');
@@ -936,7 +932,7 @@ module.exports = {
 									this.__commandIndex -= chr.size;
 									this._super(ev);
 									if (end) {
-										this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + nodejsTerminalAnsi.SimpleCommands.Erase + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
+										this.write(__Internal__.Settings.SimpleCommands.SaveCursor + end + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.RestoreCursor);
 										this.flush();
 									};
 									this.printCursor();
@@ -950,7 +946,7 @@ module.exports = {
 								const moveUpCount = this.__row - this.__homeRow;
 								this.write(	
 									(moveUpCount > 0 ? tools.format("\u001B[~0~A", [moveUpCount]) : '') + // CursorUp X Times
-									nodejsTerminalAnsi.SimpleCommands.CursorHome +
+									__Internal__.Settings.SimpleCommands.CursorHome +
 									(this.__homeColumn > 1 ? tools.format("\u001B[~0~C", [this.__homeColumn - 1]) : '') // CursorRight X Times
 								);
 								this.flush();
@@ -979,7 +975,7 @@ module.exports = {
 								
 								this.write(	
 									((this.__row > 0) && (rows > this.__row) ? tools.format("\u001B[~0~B", [rows - this.__row]) : '') + // CursorDown X Times
-									nodejsTerminalAnsi.SimpleCommands.CursorHome +
+									__Internal__.Settings.SimpleCommands.CursorHome +
 									((columns > 1) ? tools.format("\u001B[~0~C", [columns - 1]) : '') // CursorRight X Times
 								);
 								this.flush();
@@ -999,12 +995,12 @@ module.exports = {
 									this.eraseCursor();
 									if (this.__column <= 1) {
 										if (this.__row > 1) {
-											this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp + nodejsTerminalAnsi.SimpleCommands.CursorEnd);
+											this.write(__Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd);
 											this.__column = this.__columns;
 											this.__row--;
 										};
 									} else {
-										this.write(nodejsTerminalAnsi.SimpleCommands.CursorLeft);
+										this.write(__Internal__.Settings.SimpleCommands.CursorLeft);
 										this.__column--;
 									};
 									this.__commandIndex -= chr.size;
@@ -1018,11 +1014,11 @@ module.exports = {
 								if (chr) {
 									this.eraseCursor();
 									if (this.__column >= this.__columns) {
-										this.write(nodejsTerminalAnsi.SimpleCommands.CursorDown + nodejsTerminalAnsi.SimpleCommands.CursorHome);
+										this.write(__Internal__.Settings.SimpleCommands.CursorDown + __Internal__.Settings.SimpleCommands.CursorHome);
 										this.__column = 1;
 										this.__row++;
 									} else {
-										this.write(nodejsTerminalAnsi.SimpleCommands.CursorRight);
+										this.write(__Internal__.Settings.SimpleCommands.CursorRight);
 										this.__column++;
 									};
 									this.__commandIndex += chr.size;
@@ -1041,7 +1037,7 @@ module.exports = {
 										};
 										this.write(	
 											(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
-											nodejsTerminalAnsi.SimpleCommands.EraseBelow
+											__Internal__.Settings.SimpleCommands.EraseBelow
 										);
 										this.flush();
 										this.reset();
@@ -1065,7 +1061,7 @@ module.exports = {
 									};
 									this.write(	
 										(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
-										nodejsTerminalAnsi.SimpleCommands.EraseBelow
+										__Internal__.Settings.SimpleCommands.EraseBelow
 									);
 									this.flush();
 									this.reset();
@@ -1097,7 +1093,7 @@ module.exports = {
 									const end = this.__command.slice(this.__commandIndex + chr.size);
 									this.__command = this.__command.slice(0, this.__commandIndex) + end;
 									this.__commandLen--;
-									this.write(nodejsTerminalAnsi.SimpleCommands.SaveCursor + end + tools.repeat(nodejsTerminalAnsi.SimpleCommands.Erase, chr.size) + nodejsTerminalAnsi.SimpleCommands.RestoreCursor);
+									this.write(__Internal__.Settings.SimpleCommands.SaveCursor + end + tools.repeat(__Internal__.Settings.SimpleCommands.Erase, chr.size) + __Internal__.Settings.SimpleCommands.RestoreCursor);
 									this.flush();
 									this.printCursor();
 								};
@@ -1133,7 +1129,7 @@ module.exports = {
 										this.restoreCursor();
 										
 										if (fixCursor) {
-											this.write(nodejsTerminalAnsi.SimpleCommands.CursorUp);
+											this.write(__Internal__.Settings.SimpleCommands.CursorUp);
 										};
 									};
 									this.flush();
@@ -1258,13 +1254,13 @@ module.exports = {
 							text = nodeUtil.inspect(ex, {colors: false});
 						};
 						if (failed) {
-							this.write(nodejsTerminalAnsi.Colors.Red[0]);
+							this.write(__Internal__.Settings.Colors.Red[0]);
 						};
 						this.writeLine();
 						this.write(text);
 						this.writeLine();
 						if (failed) {
-							this.write(nodejsTerminalAnsi.Colors.Normal[0]);
+							this.write(__Internal__.Settings.Colors.Normal[0]);
 						};
 						this.flush();
 						if (types.isPromise(result)) {
@@ -1278,15 +1274,15 @@ module.exports = {
 				__Internal__.parseSettings = function parseSettings(err, data) {
 					if (!err) {
 						data = data.nodejsTerminal;
-						nodejsTerminalAnsi.Keyboard = nodejsTerminalAnsi.computeKeyboard(data.keyboard);
-						nodejsTerminalAnsi.NewLine = data.newLine;
-						nodejsTerminalAnsi.Colors = data.colors;
-						nodejsTerminalAnsi.Styles = data.styles;
-						nodejsTerminalAnsi.EnterKey = data.enterKey;
-						const cursorEnd = nodejsTerminalAnsi.SimpleCommands && nodejsTerminalAnsi.SimpleCommands.CursorEnd;
-						nodejsTerminalAnsi.SimpleCommands = data.simpleCommands;
+						__Internal__.Settings.Keyboard = nodejsTerminalAnsi.computeKeyboard(data.keyboard);
+						__Internal__.Settings.NewLine = data.newLine;
+						__Internal__.Settings.Colors = data.colors;
+						__Internal__.Settings.Styles = data.styles;
+						__Internal__.Settings.EnterKey = data.enterKey;
+						const cursorEnd = __Internal__.Settings.SimpleCommands && __Internal__.Settings.SimpleCommands.CursorEnd;
+						__Internal__.Settings.SimpleCommands = data.simpleCommands;
 						if (cursorEnd) {
-							nodejsTerminalAnsi.SimpleCommands.CursorEnd = cursorEnd;
+							__Internal__.Settings.SimpleCommands.CursorEnd = cursorEnd;
 						};
 						return data;
 					};
