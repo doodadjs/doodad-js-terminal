@@ -77,7 +77,7 @@ module.exports = {
 					mathSign: global.Math.sign,
 				});
 				
-				nodejsTerminalAnsi.computeKeyboard = function computeKeyboard(keyboard) {
+				nodejsTerminalAnsi.ADD('computeKeyboard', function computeKeyboard(keyboard) {
 					const computed = {};
 					tools.forEach(keyboard, function(sequence, name) {
 						if (name === '//') {
@@ -141,9 +141,9 @@ module.exports = {
 						computed[name] = new RegExp('^' + regExp, 'g');
 					}, {});
 					return computed;
-				};
+				});
 				
-				nodejsTerminalAnsi.parseKeys = function parseKeys(ansi, /*optional*/pos, /*optional*/maxKeysCount) {
+				nodejsTerminalAnsi.ADD('parseKeys', function parseKeys(ansi, /*optional*/pos, /*optional*/maxKeysCount) {
 					ansi = types.toString(ansi).replace(/(\r\n)|(\n\r)|\r|\n/gm, __Internal__.Settings.EnterKey);
 					
 					pos = (pos || 0);
@@ -230,14 +230,14 @@ module.exports = {
 					};
 					
 					return keys;
-				};
+				});
 
-				nodejsTerminalAnsi.toText = function toText(ansi) {
+				nodejsTerminalAnsi.ADD('toText', function toText(ansi) {
 					ansi = types.toString(ansi);
 					ansi = ansi.replace(/(\r\n)|(\n\r)|\r|\n/gm, __Internal__.Settings.NewLine);
 					ansi = ansi.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/gm, '');
 					return ansi;
-				};
+				});
 				
 				nodejsTerminalAnsi.REGISTER(io.Stream.$extend(
 									ioMixIns.KeyboardInput,
@@ -1288,13 +1288,13 @@ module.exports = {
 					};
 				};
 				
-				nodejsTerminal.loadSettings = function loadSettings(/*optional*/callback) {
+				nodejsTerminal.ADD('loadSettings', function loadSettings(/*optional*/callback) {
 					//return modules.locate('doodad-js-terminal').then(function (location) {
 						const path = files.Path.parse(module.filename).set({file: ''}).combine('./res/nodejsTerminal.json', {os: 'linux'});
 						//return config.load(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
 						return config.load(path, { async: true, watch: true, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
 					//});
-				};
+				});
 
 				
 				return function init(/*optional*/options) {
