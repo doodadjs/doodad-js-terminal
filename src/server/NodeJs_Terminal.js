@@ -324,14 +324,14 @@ module.exports = {
 							// <PRB> Windows doesn't not respond.
 							tools.callAsync(listenInternal, -1, this);
 						} else {
-							this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, function(err, response) {
+							this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, doodad.Callback(this, function(err, response) {
 								if (err) {
 									console.warn("Terminal can't be identified.");
 								} else if (response !== '\u001B[?1;2c') {
 									console.warn("This program is optimized for a VT100 terminal with Advanced Video Option.");
 								};
 								listenInternal.call(this);
-							}, this);
+							}));
 						};
 					}),
 					
@@ -391,11 +391,11 @@ module.exports = {
 						this.__interrogateCallback = null;
 					}),
 					
-					interrogateTerminal: doodad.PUBLIC(function interrogateTerminal(requestCommand, callback, /*optional*/thisObj, /*optional*/timeout) {
+					interrogateTerminal: doodad.PUBLIC(function interrogateTerminal(requestCommand, callback, /*optional*/timeout) {
 						if (this.__interrogate) {
 							throw new types.NotAvailable();
 						};
-						this.__interrogateCallback = doodad.Callback(thisObj, callback);
+						this.__interrogateCallback = callback;
 						this.__interrogateTimeoutId = tools.callAsync(this.cancelInterrogate, timeout || 1000, this, [new types.TimeoutError()], true);
 						this.write(requestCommand);
 						this.flush();
