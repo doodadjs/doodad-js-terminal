@@ -352,6 +352,7 @@ module.exports = {
 						const ansi = ev.data.valueOf();
 
 						if (this.__interrogate) {
+							ev.preventDefault();
 							const result = this.__interrogateCallback(null, ansi);
 							if (result !== false) { // should returns 'false' if interrogate is not terminated
 								this.__interrogate = false;
