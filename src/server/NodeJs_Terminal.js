@@ -769,6 +769,8 @@ module.exports = {
 					}),
 					
 					eraseCursor: doodad.PROTECTED(function eraseCursor() {
+						// FIXME: Cursor at end of line
+/*
 						const chr = unicode.nextChar(this.__command, this.__commandIndex);
 						this.write(
 							__Internal__.Settings.SimpleCommands.SaveCursor + 
@@ -776,6 +778,7 @@ module.exports = {
 							__Internal__.Settings.SimpleCommands.RestoreCursor
 						);
 						this.flush();
+*/
 					}),
 					
 					writeLine: doodad.OVERRIDE(function writeLine(text, /*optional*/options) {
@@ -894,6 +897,31 @@ module.exports = {
 						};
 					}),
 					
+					__moveToEnd: doodad.PROTECTED(function __moveToEnd() {
+						this.eraseCursor();
+
+						const dims = this.calculateTextDims(this.__command);
+								
+						let rows = this.__homeRow + dims.rows;
+						let columns = this.__homeColumn + dims.columns;
+								
+						if (columns > this.__columns) {
+							rows += _shared.Natives.mathFloor(columns / this.__columns);
+							columns = (columns % this.__columns);
+						};
+								
+						this.write(	
+							((this.__row > 0) && (rows > this.__row) ? tools.format("\u001B[~0~B", [rows - this.__row]) : '') + // CursorDown X Times
+							__Internal__.Settings.SimpleCommands.CursorHome +
+							((columns > 1) ? tools.format("\u001B[~0~C", [columns - 1]) : '') // CursorRight X Times
+						);
+						this.flush();
+
+						this.__column = columns;
+						this.__row = rows;
+						this.__commandIndex = this.__command.length;
+					}),
+
 					onReady: doodad.OVERRIDE(function onReady(ev) {
 						// TODO: Auto-completion
 						// TODO: Hints
@@ -902,7 +930,7 @@ module.exports = {
 						} else {
 							const data = ev.data;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
-								this.eraseCursor();
+								this.__moveToEnd();
 								const command = this.__command;
 								this.__command = '';
 								this.__commandLen = 0;
@@ -962,28 +990,7 @@ module.exports = {
 								this._super(ev);
 								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.End)) {  // End
-								this.eraseCursor();
-
-								const dims = this.calculateTextDims(this.__command);
-								
-								let rows = this.__homeRow + dims.rows;
-								let columns = this.__homeColumn + dims.columns;
-								
-								if (columns > this.__columns) {
-									rows += _shared.Natives.mathFloor(columns / this.__columns);
-									columns = (columns % this.__columns);
-								};
-								
-								this.write(	
-									((this.__row > 0) && (rows > this.__row) ? tools.format("\u001B[~0~B", [rows - this.__row]) : '') + // CursorDown X Times
-									__Internal__.Settings.SimpleCommands.CursorHome +
-									((columns > 1) ? tools.format("\u001B[~0~C", [columns - 1]) : '') // CursorRight X Times
-								);
-								this.flush();
-								
-								this.__column = columns;
-								this.__row = rows;
-								this.__commandIndex = this.__command.length;
+								this.__moveToEnd();
 								
 								this.printCursor();
 
@@ -1032,9 +1039,8 @@ module.exports = {
 								if (this.__commandsHistory && !this.__questionMode) {
 									if (this.__commandsHistoryIndex + 1 < this.__commandsHistory.length) {
 										this.eraseCursor();
-										if ((this.__commandsHistoryIndex <= 0) && (this.__command)) {
-											this.addCommandHistory(this.__command, (this.__commandsHistoryIndex === 0));
-											this.__commandsHistoryIndex = 0;
+										if ((this.__commandsHistoryIndex < 0) && (this.__command)) {
+											this.addCommandHistory(this.__command, true);
 										};
 										this.write(	
 											(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
@@ -1056,9 +1062,8 @@ module.exports = {
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.DownArrow)) {  // Down Arrow
 								if (this.__commandsHistory && !this.__questionMode) {
 									this.eraseCursor();
-									if ((this.__commandsHistoryIndex <= 0) && (this.__command)) {
-										this.addCommandHistory(this.__command, (this.__commandsHistoryIndex === 0));
-										this.__commandsHistoryIndex = 0;
+									if ((this.__commandsHistoryIndex < 0) && (this.__command)) {
+										this.addCommandHistory(this.__command, true);
 									};
 									this.write(	
 										(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
