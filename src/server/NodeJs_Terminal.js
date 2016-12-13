@@ -319,20 +319,20 @@ module.exports = {
 							this.onListen(ev);
 						};
 						
-						const os = tools.getOS();
-						if (os.type === 'windows') {
-							// <PRB> Windows doesn't not respond.
+						//const os = tools.getOS();
+						//if (os.type === 'windows') {
+						//	// <PRB> Windows doesn't not respond.
 							tools.callAsync(listenInternal, -1, this);
-						} else {
-							this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, doodad.Callback(this, function(err, response) {
-								if (err) {
-									console.warn("Terminal can't be identified.");
-								} else if (response !== '\u001B[?1;2c') {
-									console.warn("This program is optimized for a VT100 terminal with Advanced Video Option.");
-								};
-								listenInternal.call(this);
-							}));
-						};
+						//} else {
+						//	this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, doodad.Callback(this, function(err, response) {
+						//		if (err) {
+						//			console.warn("Terminal can't be identified.");
+						//		} else if (response !== '\u001B[?1;2c') {
+						//			console.warn("This program is optimized for a VT100 terminal with Advanced Video Option.");
+						//		};
+						//		listenInternal.call(this);
+						//	}));
+						//};
 					}),
 					
 					__onStdInStopListening: doodad.PROTECTED(function(ev) {
