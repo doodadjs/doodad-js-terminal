@@ -246,6 +246,7 @@ module.exports = {
 									mixIns.NodeEvents,
 				{
 					$TYPE_NAME: 'Terminal',
+					$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('Terminal')), true) */,
 					
 					number: doodad.PUBLIC(doodad.READ_ONLY(null)),
 					stdin: doodad.PUBLIC(doodad.READ_ONLY(null)),
@@ -676,6 +677,7 @@ module.exports = {
 				nodejsTerminalAnsi.REGISTER(doodad.BASE(nodejsTerminalAnsi.Terminal.$extend(
 				{
 					$TYPE_NAME: 'CommandPrompt',
+					$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('CommandPrompt')), true) */,
 					
 					__command: doodad.PROTECTED(''),
 					__commandLen: doodad.PROTECTED(0),
@@ -1154,6 +1156,7 @@ module.exports = {
 				nodejsTerminalAnsi.REGISTER(nodejsTerminalAnsi.CommandPrompt.$extend(
 				{
 					$TYPE_NAME: 'Javascript',
+					$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('Javascript')), true) */,
 					
 					__globals: doodad.PROTECTED(  null  ),
 					__preparedCommands: doodad.PROTECTED(  null  ),
