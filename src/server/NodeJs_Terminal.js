@@ -714,12 +714,12 @@ module.exports = {
 						},
 					}, extenders.ExtendObject)),
 					
-					create: doodad.OVERRIDE(function create(number, /*optional*/options) {
-						this._super(number, options);
-						
-						const historySize = types.getDefault(this.options, 'historySize', 500);
-						
-						if (historySize > 0) {
+					setOptions: doodad.OVERRIDE(function setOptions(options) {
+						types.getDefault(options, 'historySize', types.getIn(this.options, 'historySize', 50));
+
+						this._super(options);
+
+						if (this.options.historySize > 0) {
 							this.__commandsHistory = [];
 						};
 					}),
