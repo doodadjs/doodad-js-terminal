@@ -1245,7 +1245,7 @@ module.exports = {
 								result = result(command);
 							};
 						} catch(ex) {
-							if (ex instanceof types.ScriptInterruptedError) {
+							if (ex.bubble) {
 								throw ex;
 							};
 							result = ex;
@@ -1255,7 +1255,7 @@ module.exports = {
 						try {
 							text = nodeUtil.inspect(result, {colors: !failed, customInspect: true});
 						} catch(ex) {
-							if (ex instanceof types.ScriptInterruptedError) {
+							if (ex.bubble) {
 								throw ex;
 							};
 							result = ex;
