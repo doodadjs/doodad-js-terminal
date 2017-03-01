@@ -1218,11 +1218,11 @@ module.exports = {
 							ansi = nodeUtil.inspect(ex);
 						};
 						if (err) {
-							this.consoleWrite('error', [ansi], {callback: doodad.Callback(this, function() {
+							this.consoleWrite('error', [ansi], {callback: doodad.AsyncCallback(this, function() {
 								this.refresh();
 							})});
 						} else {
-							this.consoleWrite('log', [ansi], {callback: doodad.Callback(this, function() {
+							this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function() {
 								this.refresh();
 							})});
 						};
