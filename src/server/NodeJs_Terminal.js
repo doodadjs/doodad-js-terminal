@@ -195,7 +195,7 @@ module.exports = {
 									let nextKey = nodejsTerminalAnsi.parseKeys(ansi, pos + size, 1);
 									if (nextKey.length) {
 										nextKey = nextKey[0];
-										size += nextKey.raw.length;
+										size += nextKey.ansi.length;
 									} else {
 										continue scanKeyboard;
 									};
@@ -218,11 +218,7 @@ module.exports = {
 							};
 						};
 						
-						key.raw = ansi.slice(pos, pos + size);
-						
-						key.valueOf = function() {
-							return key.text;
-						};
+						key.ansi = ansi.slice(pos, pos + size);
 						
 						keys.push(key);
 						
@@ -294,7 +290,7 @@ module.exports = {
 						this.stopListening();
 						this.onStreamResize.clear();
 						if (this.__consoleWritesIntervalId) {
-							clearInterval(this.__consoleWritesIntervalId);
+							global.clearTimeout(this.__consoleWritesIntervalId);
 							this.__consoleWritesIntervalId = null;
 						};
 						this._super();
@@ -350,7 +346,7 @@ module.exports = {
 					}),
 							
 					__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
-						const ansi = ev.data.valueOf();
+						const ansi = this.transform(ev.data);
 
 						if (this.__interrogate) {
 							ev.preventDefault();
@@ -371,7 +367,7 @@ module.exports = {
 									tools.abortScript();
 									break;  // <<< should not be executed
 								} else {
-									this.push(key);
+									this.push(new io.Data(key));
 								};
 							};
 							
@@ -456,7 +452,7 @@ module.exports = {
 						let timeoutCb;
 						const __timeout = function timeout() {
 							this.__consoleWritesIntervalId = global.setTimeout(doodad.Callback(this, function() {
-								if (!this.isDestroyed()) {
+								if (!_shared.DESTROYED(this)) {
 									if (this.__consoleWritesCount > 0) {
 										this.flush();
 										this.refresh();
@@ -526,7 +522,9 @@ module.exports = {
 						const data = ev.data;
 						if (data.raw !== io.EOF) {
 							const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
-							stream.write(data.valueOf(), data.options);
+							if (stream.canWrite()) {
+								stream.write(data, {callback: data.defer()});
+							};
 						};
 
 						return retval;
@@ -541,7 +539,6 @@ module.exports = {
 							name = 'info';
 							args = ["... (console writes limit reached)"];
 						};
-						const callback = types.get(options, 'callback');
 						if (this.__consoleWritesCount <= this.options.writesLimit) {
 							const msg = nodeUtil.format.apply(nodeUtil, args)
 							
@@ -579,19 +576,13 @@ module.exports = {
 								ansi += __Internal__.Settings.Colors.Normal[1];
 							};
 							
-							//this.write(ansi, {callback: doodad.Callback(this, function() {
-							//	this.flush({callback: doodad.Callback(this, function() {
-							//		callback && callback();
-							//		this.refresh();
-							//	})});
-							//})});
-
-							this.write(ansi, {callback: callback});
+							this.write(ansi, options);
 							
 							return msg;
 							
 						} else {
-							callback && callback();
+							const callback = types.get(options, 'callback');
+							callback && callback(null);
 						};
 					}),
 					
@@ -619,7 +610,7 @@ module.exports = {
 						if (ev.prevent) {
 							this._super(ev);
 						} else {
-							const data = ev.data;
+							const data = ev.data.raw;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
 								this.writeLine();
 								this.flush();
@@ -873,11 +864,6 @@ module.exports = {
 						if (this.__questionMode) {
 							throw new types.NotAvailable();
 						};
-						const qcb = this.__questionMode && this.__questionCallback;
-						if (qcb) {
-							// Previous question cancelled.
-							qcb('');
-						};
 						this.__questionMode = true;
 						this.__question = question;
 						this.__questionCallback = callback;
@@ -930,7 +916,7 @@ module.exports = {
 						if (ev.prevent) {
 							this._super(ev);
 						} else {
-							const data = ev.data;
+							const data = ev.data.raw;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
 								this.__moveToEnd();
 								const command = this.__command;
@@ -1218,12 +1204,16 @@ module.exports = {
 							ansi = nodeUtil.inspect(ex);
 						};
 						if (err) {
-							this.consoleWrite('error', [ansi], {callback: doodad.AsyncCallback(this, function() {
-								this.refresh();
+							this.consoleWrite('error', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
+								if (!err) {
+									this.refresh();
+								};
 							})});
 						} else {
-							this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function() {
-								this.refresh();
+							this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
+								if (!err) {
+									this.refresh();
+								};
 							})});
 						};
 					}),
