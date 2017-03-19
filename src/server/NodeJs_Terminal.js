@@ -286,6 +286,7 @@ module.exports = {
 						this.onStreamResize.attach(this.stdout.stream);
 						this.setColumns();
 					}),
+
 					destroy: doodad.OVERRIDE(function destroy() {
 						this.stopListening();
 						this.onStreamResize.clear();
@@ -298,7 +299,6 @@ module.exports = {
 					
 					beforeQuit: doodad.PROTECTED(function quit() {
 						this.writeLine();
-						this.flush();
 					}),
 					
 					__onStdInListen: doodad.PROTECTED(function onStdInListen(ev) {
@@ -333,7 +333,7 @@ module.exports = {
 					}),
 					
 					__onStdInStopListening: doodad.PROTECTED(function(ev) {
-						this.stdin.onReady.detach(this, this.__onStdInReady);
+						this.stdin.onData.detach(this, this.__onStdInReady);
 
 						io.setStds({
 							stdin: __Internal__.oldStdIn,
@@ -346,10 +346,11 @@ module.exports = {
 					}),
 							
 					__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
+						ev.preventDefault();
+
 						const ansi = this.transform(ev.data);
 
 						if (this.__interrogate) {
-							ev.preventDefault();
 							const result = this.__interrogateCallback(null, ansi);
 							if (result !== false) { // should returns 'false' if interrogate is not terminated
 								this.__interrogate = false;
@@ -358,10 +359,11 @@ module.exports = {
 								this.__interrogateCallback = null;
 							};
 						} else {
-							const keys = nodejsTerminalAnsi.parseKeys(ansi);
+							const keys = nodejsTerminalAnsi.parseKeys(ansi),
+								len = keys.length;
 							
-							while (keys.length) {
-								let key = keys.shift();
+							for (let i = 0; i < len; i++) {
+								const key = keys[i];
 								if (!types.get(this.options, 'ignoreCtrlC', false) && (key.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (key.text === 'C')) { // CTRL+C
 									this.beforeQuit();
 									tools.abortScript();
@@ -369,10 +371,6 @@ module.exports = {
 								} else {
 									this.push(new io.Data(key));
 								};
-							};
-							
-							if (!keys.length) {
-								ev.preventDefault();
 							};
 						};
 					}),
@@ -395,13 +393,13 @@ module.exports = {
 						this.__interrogateCallback = callback;
 						this.__interrogateTimeoutId = tools.callAsync(this.cancelInterrogate, timeout || 1000, this, [new types.TimeoutError()], true);
 						this.write(requestCommand);
-						this.flush();
 						this.__interrogate = true;
 					}),
 					
 					isListening: doodad.OVERRIDE(function isListening() {
 						return !!this.stdin && this.stdin.isListening();
 					}),
+
 					listen: doodad.OVERRIDE(function listen(/*optional*/options) {
 						if (!this.isListening()) {
 							this.stdin.onListen.attach(this, this.__onStdInListen);
@@ -410,6 +408,7 @@ module.exports = {
 							this.stdin.listen(options);
 						};
 					}),
+
 					stopListening: doodad.OVERRIDE(function stopListening() {
 						if (this.isListening()) {
 							this.stdin.stopListening();
@@ -418,18 +417,18 @@ module.exports = {
 					
 					saveCursor: doodad.PUBLIC(function saveCursor() {
 						this.write(__Internal__.Settings.SimpleCommands.SaveCursor);
-						this.flush();
 						
 						this.__savedColumn = this.__column;
 						this.__savedRow = this.__row;
 					}),
+
 					restoreCursor: doodad.PUBLIC(function restoreCursor() {
 						this.__column = _shared.Natives.mathMin(this.__savedColumn, this.__columns);
 						this.__row = this.__savedRow;
 						
 						this.write(__Internal__.Settings.SimpleCommands.RestoreCursor);
-						this.flush();
 					}),
+
 					resetPosition: doodad.PUBLIC(function resetPosition() {
 						this.__column = 1;
 						this.__row = 1;
@@ -454,7 +453,6 @@ module.exports = {
 							this.__consoleWritesIntervalId = global.setTimeout(doodad.Callback(this, function() {
 								if (!_shared.DESTROYED(this)) {
 									if (this.__consoleWritesCount > 0) {
-										this.flush();
 										this.refresh();
 									};
 									this.__consoleWritesCount = 0;
@@ -514,20 +512,25 @@ module.exports = {
 						this.write(text, options);
 					}),
 
-					onWrite: doodad.OVERRIDE(function onWrite(ev) {
-						const retval = this._super(ev);
+					__pushInternal: doodad.REPLACE(function __pushInternal(data, /*optional*/options) {
+						return this.stdin.push(data, options);
+					}),
 
-						ev.preventDefault();
+					__pullInternal: doodad.REPLACE(function __pullInternal(/*optional*/options) {
+						return this.stdin.pull(options);
+					}),
 
-						const data = ev.data;
+					canWrite: doodad.REPLACE(function canWrite() {
+						return this.stderr.canWrite() && this.stdout.canWrite();
+					}),
+
+					__submitInternal: doodad.REPLACE(function __submitInternal(data, /*optional*/options) {
 						if (data.raw !== io.EOF) {
 							const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
 							if (stream.canWrite()) {
 								stream.write(data, {callback: data.defer()});
 							};
 						};
-
-						return retval;
 					}),
 					
 					consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
@@ -600,52 +603,36 @@ module.exports = {
 								__Internal__.Settings.SimpleCommands.EraseBelow +
 								__Internal__.Settings.SimpleCommands.ScrollScreen
 							);
-							this.flush();
 							this.setColumns();
 							this.refresh();
 						};
 					}),
 					
 					onReady: doodad.OVERRIDE(function onReady(ev) {
-						if (ev.prevent) {
-							this._super(ev);
-						} else {
+						if (!ev.prevent) {
 							const data = ev.data.raw;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
 								this.writeLine();
-								this.flush();
 								if (__Internal__.osType !== 'windows') {
 									this.setColumns();
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'H')) { // Backspace
 								if (this.__column > 1) {
 									this.write(__Internal__.Settings.SimpleCommands.CursorLeft + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.CursorLeft);
-									this.flush();
 									this.__column--;
 								} else if (this.__row > 1) {
-									if (__Internal__.osType === 'windows') {
-										this.write(__Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd);
-									} else {
-										this.write(__Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.CursorEnd);
-									};
-									this.flush();
+									this.write(__Internal__.Settings.SimpleCommands.CursorUp + __Internal__.Settings.SimpleCommands.CursorEnd + __Internal__.Settings.SimpleCommands.SaveCursor + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.RestoreCursor);
 									this.__column = this.__columns;
 									this.__row--;
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && data.text) {
 								this.writeText(data.text);
-								this.flush();
 								ev.preventDefault();
-								this._super(ev);
-							} else {
-								ev.preventDefault();
-								this._super(ev);
 							};
 						};
+						this._super(ev);
 					}),
 
 					
@@ -719,7 +706,6 @@ module.exports = {
 						this.eraseCursor();
 						this._super();
 						this.write(__Internal__.Settings.SimpleCommands.ShowCursor);
-						this.flush();
 					}),
 
 					printCursor: doodad.PROTECTED(function printCursor() {
@@ -757,7 +743,6 @@ module.exports = {
 						//} else {
 						//		??????
 						//};
-						this.flush();
 		*/
 					}),
 					
@@ -770,7 +755,6 @@ module.exports = {
 							(chr ? chr.chr : __Internal__.Settings.SimpleCommands.Erase) + 
 							__Internal__.Settings.SimpleCommands.RestoreCursor
 						);
-						this.flush();
 */
 					}),
 					
@@ -791,7 +775,6 @@ module.exports = {
 						} else {
 							this.writeText(types.get(this.options, 'prompt', '>>> '));
 						};
-						this.flush();
 						this.__homeColumn = this.__column;
 						this.__homeRow = this.__row;
 					}),
@@ -857,7 +840,6 @@ module.exports = {
 							this.__commandIndex = this.__command.length;
 						};
 						
-						this.flush();
 					}),
 
 					ask: doodad.PUBLIC(function ask(question, callback, /*optional*/options) {
@@ -903,7 +885,6 @@ module.exports = {
 							__Internal__.Settings.SimpleCommands.CursorHome +
 							((columns > 1) ? tools.format("\u001B[~0~C", [columns - 1]) : '') // CursorRight X Times
 						);
-						this.flush();
 
 						this.__column = columns;
 						this.__row = rows;
@@ -913,9 +894,7 @@ module.exports = {
 					onReady: doodad.OVERRIDE(function onReady(ev) {
 						// TODO: Auto-completion
 						// TODO: Hints
-						if (ev.prevent) {
-							this._super(ev);
-						} else {
+						if (!ev.prevent) {
 							const data = ev.data.raw;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
 								this.__moveToEnd();
@@ -925,7 +904,6 @@ module.exports = {
 								if (this.__questionMode) {
 									const qcb = this.__questionCallback;
 									this.writeLine();
-									this.flush();
 									this.reset();
 									if (qcb) {
 										qcb(command);
@@ -935,7 +913,6 @@ module.exports = {
 									this.addCommandHistory(cmd);
 									this.runCommand(cmd);
 								};
-								this._super(ev);
 								this.reset();
 								this.printPrompt();
 								this.printCursor();
@@ -947,15 +924,13 @@ module.exports = {
 									this.__command = this.__command.slice(0, this.__commandIndex - chr.size) + end;
 									this.__commandLen--;
 									this.__commandIndex -= chr.size;
-									this._super(ev);
+									////this._super(ev);
 									if (end) {
 										this.write(__Internal__.Settings.SimpleCommands.SaveCursor + end + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.RestoreCursor);
-										this.flush();
 									};
 									this.printCursor();
 								} else {
 									ev.preventDefault();
-									this._super(ev);
 								};
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Home)) {  // Home
 								this.eraseCursor();
@@ -966,7 +941,6 @@ module.exports = {
 									__Internal__.Settings.SimpleCommands.CursorHome +
 									(this.__homeColumn > 1 ? tools.format("\u001B[~0~C", [this.__homeColumn - 1]) : '') // CursorRight X Times
 								);
-								this.flush();
 								
 								this.__column = this.__homeColumn;
 								this.__row = this.__homeRow;
@@ -975,7 +949,6 @@ module.exports = {
 								this.printCursor();
 
 								ev.preventDefault();
-								this._super(ev);
 								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.End)) {  // End
 								this.__moveToEnd();
@@ -983,7 +956,6 @@ module.exports = {
 								this.printCursor();
 
 								ev.preventDefault();
-								this._super(ev);
 								
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.LeftArrow)) {  // Left Arrow
 								const chr = unicode.prevChar(this.__command, this.__commandIndex);
@@ -1000,11 +972,9 @@ module.exports = {
 										this.__column--;
 									};
 									this.__commandIndex -= chr.size;
-									this.flush();
 									this.printCursor();
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.RightArrow)) {  // Right Arrow
 								const chr = unicode.nextChar(this.__command, this.__commandIndex);
 								if (chr) {
@@ -1018,11 +988,9 @@ module.exports = {
 										this.__column++;
 									};
 									this.__commandIndex += chr.size;
-									this.flush();
 									this.printCursor();
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.UpArrow)) {  // Up Arrow
 								if (this.__commandsHistory && !this.__questionMode) {
 									if (this.__commandsHistoryIndex + 1 < this.__commandsHistory.length) {
@@ -1034,19 +1002,16 @@ module.exports = {
 											(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
 											__Internal__.Settings.SimpleCommands.EraseBelow
 										);
-										this.flush();
 										this.reset();
 										this.printPrompt();
 										this.__commandsHistoryIndex++;
 										this.__command = this.__commandsHistory[this.__commandsHistoryIndex];
 										this.__commandIndex = this.__command.length;
 										this.writeText(this.__command);
-										this.flush();
 										this.printCursor();
 									};
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.DownArrow)) {  // Down Arrow
 								if (this.__commandsHistory && !this.__questionMode) {
 									this.eraseCursor();
@@ -1057,7 +1022,6 @@ module.exports = {
 										(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
 										__Internal__.Settings.SimpleCommands.EraseBelow
 									);
-									this.flush();
 									this.reset();
 									this.printPrompt();
 									this.printCursor();
@@ -1071,15 +1035,12 @@ module.exports = {
 											this.__commandsHistoryIndex = -1;
 										};
 									};
-									this.flush();
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Insert)) {  // Insert
 								this.__insertMode = !this.__insertMode;
 								this.printCursor();
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.Delete)) {  // Delete
 								const chr = unicode.nextChar(this.__command, this.__commandIndex);
 								if (chr) {
@@ -1088,11 +1049,9 @@ module.exports = {
 									this.__command = this.__command.slice(0, this.__commandIndex) + end;
 									this.__commandLen--;
 									this.write(__Internal__.Settings.SimpleCommands.SaveCursor + end + tools.repeat(__Internal__.Settings.SimpleCommands.Erase, chr.size) + __Internal__.Settings.SimpleCommands.RestoreCursor);
-									this.flush();
 									this.printCursor();
 								};
 								ev.preventDefault();
-								this._super(ev);
 							} else if (!data.functionKeys && data.text) {  // Visible chars
 								let chr = unicode.nextChar(this.__command, this.__commandIndex);
 								let end = '';
@@ -1126,16 +1085,13 @@ module.exports = {
 											this.write(__Internal__.Settings.SimpleCommands.CursorUp);
 										};
 									};
-									this.flush();
 									this.printCursor();
 								};
 								
 								ev.preventDefault();
-								this._super(ev);
-							} else {
-								this._super(ev);
 							};
 						};
+						this._super(ev);
 					}),
 				})));
 
@@ -1261,7 +1217,6 @@ module.exports = {
 						if (failed) {
 							this.write(__Internal__.Settings.Colors.Normal[0]);
 						};
-						this.flush();
 						if (types.isPromise(result)) {
 							result
 								.nodeify(this.__printAsyncResult, this);
