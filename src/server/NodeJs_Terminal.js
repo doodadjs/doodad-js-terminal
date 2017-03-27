@@ -396,11 +396,11 @@ module.exports = {
 						this.__interrogate = true;
 					}),
 					
-					isListening: doodad.OVERRIDE(function isListening() {
+					isListening: doodad.REPLACE(function isListening() {
 						return !!this.stdin && this.stdin.isListening();
 					}),
 
-					listen: doodad.OVERRIDE(function listen(/*optional*/options) {
+					listen: doodad.REPLACE(function listen(/*optional*/options) {
 						if (!this.isListening()) {
 							this.stdin.onListen.attach(this, this.__onStdInListen);
 							this.stdin.onStopListening.attach(this, this.__onStdInStopListening);
@@ -409,7 +409,7 @@ module.exports = {
 						};
 					}),
 
-					stopListening: doodad.OVERRIDE(function stopListening() {
+					stopListening: doodad.REPLACE(function stopListening() {
 						if (this.isListening()) {
 							this.stdin.stopListening();
 						};
@@ -512,14 +512,6 @@ module.exports = {
 						this.write(text, options);
 					}),
 
-					__pushInternal: doodad.REPLACE(function __pushInternal(data, /*optional*/options) {
-						return this.stdin.push(data, options);
-					}),
-
-					__pullInternal: doodad.REPLACE(function __pullInternal(/*optional*/options) {
-						return this.stdin.pull(options);
-					}),
-
 					canWrite: doodad.REPLACE(function canWrite() {
 						return this.stderr.canWrite() && this.stdout.canWrite();
 					}),
@@ -528,9 +520,10 @@ module.exports = {
 						if (data.raw !== io.EOF) {
 							const stream = (types.get(data.options, 'isError') ? this.stderr : this.stdout);
 							if (stream.canWrite()) {
-								stream.write(data, {callback: data.defer()});
+								stream.write(data);
 							};
 						};
+						data.consume();
 					}),
 					
 					consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
@@ -894,9 +887,12 @@ module.exports = {
 					onReady: doodad.OVERRIDE(function onReady(ev) {
 						// TODO: Auto-completion
 						// TODO: Hints
+						let callSuper = true;
 						if (!ev.prevent) {
 							const data = ev.data.raw;
 							if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'M')) { // Enter
+								this._super(ev);
+								callSuper = false;
 								this.__moveToEnd();
 								const command = this.__command;
 								this.__command = '';
@@ -916,6 +912,7 @@ module.exports = {
 								this.reset();
 								this.printPrompt();
 								this.printCursor();
+								ev.preventDefault();
 							} else if ((data.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (data.text === 'H')) { // Backspace
 								const chr = unicode.prevChar(this.__command, this.__commandIndex);
 								if (chr) {
@@ -924,7 +921,8 @@ module.exports = {
 									this.__command = this.__command.slice(0, this.__commandIndex - chr.size) + end;
 									this.__commandLen--;
 									this.__commandIndex -= chr.size;
-									////this._super(ev);
+									this._super(ev);
+									callSuper = false;
 									if (end) {
 										this.write(__Internal__.Settings.SimpleCommands.SaveCursor + end + __Internal__.Settings.SimpleCommands.Erase + __Internal__.Settings.SimpleCommands.RestoreCursor);
 									};
@@ -1091,7 +1089,9 @@ module.exports = {
 								ev.preventDefault();
 							};
 						};
-						this._super(ev);
+						if (callSuper) {
+							this._super(ev);
+						};
 					}),
 				})));
 
@@ -1105,7 +1105,7 @@ module.exports = {
 					
 					__commands: {
 						help: function() {
-							return types.get(this.options, 'help', "Help: Type Javascript expressions, or type `commands` to get a list of available commands.");
+							return types.get(this.options, 'help', "Help: Type Javascript expressions, or type 'commands' to get a list of available commands.");
 						},
 						commands: function() {
 							return types.keys(this.__preparedCommands);
