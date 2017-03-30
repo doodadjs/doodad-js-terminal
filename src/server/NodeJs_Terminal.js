@@ -348,7 +348,7 @@ module.exports = {
 					__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
 						ev.preventDefault();
 
-						const ansi = this.transform(ev.data);
+						const ansi = this.transformOut(ev.data);
 
 						if (this.__interrogate) {
 							const result = this.__interrogateCallback(null, ansi);
