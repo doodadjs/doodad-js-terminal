@@ -588,7 +588,7 @@ module.exports = {
 						__Internal__.Settings.SimpleCommands.CursorEnd = '\x1B[' + newColumns + 'G';
 					}),
 
-					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize() {
+					onStreamResize: doodad.NODE_EVENT('resize', function onStreamResize(context) {
 						if (__Internal__.osType === 'windows') {
 							this.write(
 								__Internal__.Settings.SimpleCommands.CursorScreenHome +
@@ -649,6 +649,12 @@ module.exports = {
 				{
 					$TYPE_NAME: 'CommandPrompt',
 					$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('CommandPrompt')), true) */,
+					
+					// TEST OVERRIDING A NODE_EVENT
+					//onStreamResize: doodad.OVERRIDE(function onStreamResize(context) {
+					//	this._super(context);
+					//	debugger;
+					//}),
 					
 					__command: doodad.PROTECTED(''),
 					__commandLen: doodad.PROTECTED(0),
