@@ -1224,7 +1224,7 @@ module.exports = {
 							this.write(__Internal__.Settings.Colors.Normal[0]);
 						};
 						if (types.isPromise(result)) {
-							result
+							Promise.resolve(result)
 								.nodeify(this.__printAsyncResult, this);
 						};
 					}),
