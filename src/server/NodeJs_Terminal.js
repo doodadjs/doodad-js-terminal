@@ -1130,25 +1130,26 @@ module.exports = {
 						const locals = types.get(options, 'locals', {root: root});
 
 						const commands = types.extend({}, this.__commands, types.get(options, 'commands'));
-						const self = this;
+
+						const inspectSymbol = nodejs.getCustomInspectSymbol();
+
+						const createInspect = function _createInspect(fn, /*optional*/args) {
+							const self = this;
+							return function(/*paramarray*/) {
+								let result = fn.apply(self, args);
+								if (types.isPromise(result)) {
+									result = result
+										.nodeify(self.__printAsyncResult, self);
+								};
+								return result;
+							};
+						};
 
 						tools.forEach(commands, function(fn, name) {
-							fn = _shared.makeInside(self, fn, _shared.SECRET);
-							function createInspect(/*optional*/args) {
-								return function(/*paramarray*/) {
-									let result = fn.apply(self, args);
-									if (types.isPromise(result)) {
-										result = result
-											.nodeify(self.__printAsyncResult, self);
-									};
-									return result;
-								};
-							};
-							const inspectSymbol = nodejs.getCustomInspectSymbol();
-							const val = function(/*paramarray*/) {return {[inspectSymbol]: createInspect(arguments)}};
-							val[inspectSymbol] = createInspect();
-							commands[name] = val;
-						});
+							fn = _shared.makeInside(this, fn, _shared.SECRET);
+							fn[inspectSymbol] = createInspect.call(this, fn);
+							commands[name] = fn;
+						}, this);
 						
 						this.__preparedCommands = commands;
 						this.__globals = types.extend({}, locals, commands);
