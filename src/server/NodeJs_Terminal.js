@@ -674,21 +674,83 @@ module.exports = {
 					__questionCallback: doodad.PROTECTED(null),
 					__questionOptions: doodad.PROTECTED(null),
 					
+					__defaultHelp: doodad.PROTECTED( "Help: Type 'quit', 'exit' or 'history'" ),
+
 					__commands: doodad.PROTECTED(doodad.ATTRIBUTE({
-						help: function() {
-							return types.get(this.options, 'help', "Type 'quit', 'exit' or history'");
-						},
-						quit: function() {
-							this.beforeQuit();
-							tools.abortScript();
-						},
-						exit: function() {
-							this.beforeQuit();
-							tools.abortScript();
-						},
-						history: function() {
-							return types.items(types.clone(this.__commandsHistory).reverse());
-						},
+						help: root.DD_DOC(
+								{
+									author: "Claude Petit",
+									revision: 0,
+									params:  {
+										command: {
+											type: 'string,function',
+											optional: true,
+											description: "Command to returns help for. If not specified, general help will be returned.",
+										},
+									},
+									returns: 'string,object',
+									description: "Returns help.",
+								}, function(/*optional*/command) {
+									if (types.isNothing(command)) {
+										return types.get(this.options, 'help', this.__defaultHelp);
+									} else if (types.isString(command)) {
+										const fn = this.__commands[command];
+										if (fn) {
+											return root.GET_DD_DOC(fn);
+										} else {
+											return new types.Error("Unknown command '~0~'.", [command]);
+										};
+									} else {
+										return root.GET_DD_DOC(command[_shared.OriginalValueSymbol] || command);
+									};
+								}),
+						commands: root.DD_DOC(
+								{
+									author: "Claude Petit",
+									revision: 0,
+									params:  null,
+									returns: 'object',
+									description: "Returns command names with their description.",
+								}, function() {
+									const result = {};
+									tools.forEach(this.__commands, function(cmd, name) {
+										const doc = root.GET_DD_DOC(cmd);
+										result[name] = doc && doc.description || "No description available.";
+									}, this);
+									return result;
+								}),
+						quit: root.DD_DOC(
+								{
+									author: "Claude Petit",
+									revision: 0,
+									params:  null,
+									returns: 'undefined',
+									description: "Quits the application.",
+								}, function() {
+									this.beforeQuit();
+									tools.abortScript();
+								}),
+						exit: root.DD_DOC(
+								{
+									author: "Claude Petit",
+									revision: 0,
+									params:  null,
+									returns: 'undefined',
+									description: "Quits the application.",
+								}, function() {
+									this.beforeQuit();
+									tools.abortScript();
+								}),
+						history: root.DD_DOC(
+								{
+									author: "Claude Petit",
+									revision: 0,
+									params:  null,
+									returns: 'arrayof(string)',
+									description: "Returns commands history.",
+								}, function() {
+									return types.items(types.clone(this.__commandsHistory).reverse());
+								}),
 					}, extenders.ExtendObject)),
 					
 					setOptions: doodad.OVERRIDE(function setOptions(options) {
@@ -1107,18 +1169,20 @@ module.exports = {
 					$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('Javascript')), true) */,
 					
 					__globals: doodad.PROTECTED(  null  ),
-					__preparedCommands: doodad.PROTECTED(  null  ),
+
+					__defaultHelp: doodad.PROTECTED( "Help: Type Javascript expressions, or type 'commands' to get a list of available commands." ),
 					
 					__commands: {
-						help: function() {
-							return types.get(this.options, 'help', "Help: Type Javascript expressions, or type 'commands' to get a list of available commands.");
-						},
-						commands: function() {
-							return types.keys(this.__preparedCommands);
-						},
-						globals: function() {
-							return types.keys(this.__globals);
-						},
+						globals: root.DD_DOC(
+								{
+									author: "Claude Petit",
+									revision: 0,
+									params:  null,
+									returns: 'arrayof(string)',
+									description: "Returns a list of global variables.",
+								}, function() {
+									return types.keys(this.__globals);
+								}),
 					},
 					
 					
@@ -1146,12 +1210,12 @@ module.exports = {
 						};
 
 						tools.forEach(commands, function(fn, name) {
+							this.__commands[name] = fn;
 							fn = _shared.makeInside(this, fn, _shared.SECRET);
 							fn[inspectSymbol] = createInspect.call(this, fn);
 							commands[name] = fn;
 						}, this);
 						
-						this.__preparedCommands = commands;
 						this.__globals = types.extend({}, locals, commands);
 					}),
 					
