@@ -685,7 +685,7 @@ module.exports = {
 										command: {
 											type: 'string,function',
 											optional: true,
-											description: "Command to returns help for. If not specified, general help will be returned.",
+											description: "Command to return help for. If not specified, general help will be returned.",
 										},
 									},
 									returns: 'string,object',
