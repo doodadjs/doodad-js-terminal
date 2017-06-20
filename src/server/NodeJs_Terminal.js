@@ -917,7 +917,7 @@ module.exports = {
 					askAsync: doodad.PUBLIC(doodad.ASYNC(function askAsync(question, /*optional*/options) {
 						const Promise = types.getPromise();
 						return Promise.create(function(resolve, reject) {
-							this.ask(question, resolve);
+							this.ask(question, resolve, options);
 						}, this);
 					})),
 
