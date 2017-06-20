@@ -914,6 +914,13 @@ module.exports = {
 						this.refresh();
 					}),
 
+					askAsync: doodad.PUBLIC(doodad.ASYNC(function askAsync(question, /*optional*/options) {
+						const Promise = types.getPromise();
+						return Promise.create(function(resolve, reject) {
+							this.ask(question, resolve);
+						}, this);
+					})),
+
 					addCommandHistory: doodad.PROTECTED(function addCommandHistory(command, /*optional*/replace) {
 						if (command && this.__commandsHistory) {
 							if (replace && (this.__commandsHistoryIndex >= 0) && (this.__commandsHistoryIndex < this.__commandsHistory.length)) {
