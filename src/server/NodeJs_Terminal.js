@@ -1259,7 +1259,13 @@ module.exports = {
 							return;
 						};
 						let result,
-							failed = false;
+							failed = false,
+							exitHandler = null;
+						tools.addEventListener('exit', exitHandler = function(ev) {
+							if (!ev.detail.error.critical) {
+								ev.preventDefault();
+							};
+						});
 						try {
 							if (types.get(this.options, 'restricted', true)) {
 								result = safeEval.eval(command, this.__globals);
@@ -1274,6 +1280,8 @@ module.exports = {
 							};
 							result = ex;
 							failed = true;
+						} finally {
+							tools.removeEventListener('exit', exitHandler);
 						};
 						let text;
 						try {
