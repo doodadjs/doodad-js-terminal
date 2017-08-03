@@ -653,7 +653,7 @@ module.exports = {
 					// TEST OVERRIDING A NODE_EVENT
 					//onStreamResize: doodad.OVERRIDE(function onStreamResize(context) {
 					//	this._super(context);
-					//	debugger;
+					//	types.DEBUGGER();
 					//}),
 					
 					__command: doodad.PROTECTED(''),
