@@ -333,7 +333,7 @@ module.exports = {
 					}),
 					
 					__onStdInStopListening: doodad.PROTECTED(function(ev) {
-						this.stdin.onData.detach(this, this.__onStdInReady);
+						this.stdin.onReady.detach(this, this.__onStdInReady);
 
 						io.setStds({
 							stdin: __Internal__.oldStdIn,
