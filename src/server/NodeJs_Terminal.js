@@ -1268,11 +1268,14 @@ module.exports = {
 						});
 						try {
 							if (types.get(this.options, 'restricted', true)) {
-								result = safeEval.eval(command, this.__globals);
+								result = this.callOutside(function(globals, command) {
+									return safeEval.eval(command, globals);
+								}, [this.__globals, command]);
 							} else {
-								result = safeEval.createEval(types.keys(this.__globals))
-								result = result.apply(null, types.values(this.__globals));
-								result = result(command);
+								result = this.callOutside(function(globals, command) {
+									const evalFn = safeEval.createEval(types.keys(globals)).apply(null, types.values(globals));
+									return evalFn(command);
+								}, [this.__globals, command]);
 							};
 						} catch(ex) {
 							if (ex.bubble) {
