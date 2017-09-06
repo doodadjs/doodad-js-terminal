@@ -66,10 +66,10 @@ module.exports = {
 					oldStdErr: null,
 					osType: tools.getOS().type,
 
-					Settings: types.nullObject(),
+					Settings: tools.nullObject(),
 				};
 				
-				types.complete(_shared.Natives, {
+				tools.complete(_shared.Natives, {
 					mathFloor: global.Math.floor,
 					mathMin: global.Math.min,
 					mathMax: global.Math.max,
@@ -548,7 +548,7 @@ module.exports = {
 								__Internal__.Settings.SimpleCommands.EraseBelow + 
 								__Internal__.Settings.SimpleCommands.CursorHome;
 								
-							options = types.extend({}, this.options, options);
+							options = tools.extend({}, this.options, options);
 							const color = __Internal__.Settings.Colors[types.get(options, name + 'Color', null)];
 							if (color) {
 								ansi += color[0];
@@ -1200,7 +1200,7 @@ module.exports = {
 						
 						const locals = types.get(options, 'locals', {root: root});
 
-						const commands = types.extend({}, this.__commands, types.get(options, 'commands'));
+						const commands = tools.extend({}, this.__commands, types.get(options, 'commands'));
 
 						const inspectSymbol = nodejs.getCustomInspectSymbol();
 
@@ -1223,7 +1223,7 @@ module.exports = {
 							commands[name] = fn;
 						}, this);
 						
-						this.__globals = types.extend({}, locals, commands);
+						this.__globals = tools.extend({}, locals, commands);
 					}),
 					
 					__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
