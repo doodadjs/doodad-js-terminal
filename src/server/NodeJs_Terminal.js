@@ -24,6 +24,16 @@
 //	limitations under the License.
 //! END_REPLACE()
 
+//! IF_SET("mjs")
+	//! INJECT("import {default as nodeUtil} from 'util';");
+//! ELSE()
+	const nodeUtil = require('util');
+//! END_IF()
+
+const nodeUtilFormat = nodeUtil.format,
+	nodeUtilInspect = nodeUtil.inspect;
+
+
 exports.add = function add(DD_MODULES) {
 	DD_MODULES = (DD_MODULES || {});
 	DD_MODULES['Doodad.NodeJs.Terminal'] = {
@@ -54,9 +64,7 @@ exports.add = function add(DD_MODULES) {
 				nodejs = doodad.NodeJs,
 				nodejsIO = nodejs.IO,
 				nodejsTerminal = nodejs.Terminal,
-				nodejsTerminalAnsi = nodejsTerminal.Ansi,
-				
-				nodeUtil = require('util');
+				nodejsTerminalAnsi = nodejsTerminal.Ansi;
 				
 				
 			const __Internal__ = {
@@ -535,7 +543,7 @@ exports.add = function add(DD_MODULES) {
 						args = ["... (console writes limit reached)"];
 					};
 					if (this.__consoleWritesCount <= this.options.writesLimit) {
-						const msg = nodeUtil.format.apply(nodeUtil, args)
+						const msg = nodeUtilFormat.apply(nodeUtil, args)
 							
 						this.__consoleWritesCount++;
 							
@@ -1228,13 +1236,13 @@ exports.add = function add(DD_MODULES) {
 				__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
 					let ansi;
 					try {
-						ansi = nodeUtil.inspect(err || value, {colors: !err});
+						ansi = nodeUtilInspect(err || value, {colors: !err});
 					} catch(ex) {
 						if (ex instanceof types.ScriptInterruptedError) {
 							throw ex;
 						};
 						err = true;
-						ansi = nodeUtil.inspect(ex);
+						ansi = nodeUtilInspect(ex);
 					};
 					if (err) {
 						this.consoleWrite('error', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
@@ -1287,14 +1295,14 @@ exports.add = function add(DD_MODULES) {
 					};
 					let text;
 					try {
-						text = nodeUtil.inspect(result, {colors: !failed, customInspect: true});
+						text = nodeUtilInspect(result, {colors: !failed, customInspect: true});
 					} catch(ex) {
 						if (ex.bubble) {
 							throw ex;
 						};
 						result = ex;
 						failed = true;
-						text = nodeUtil.inspect(ex, {colors: false});
+						text = nodeUtilInspect(ex, {colors: false});
 					};
 					if (failed) {
 						this.write(__Internal__.Settings.Colors.Red[0]);
