@@ -1280,7 +1280,7 @@ exports.add = function add(DD_MODULES) {
 							}, [this.__globals, command]);
 						} else {
 							result = this.callOutside(function(globals, command) {
-								const evalFn = safeEval.createEval(types.keys(globals)).apply(null, types.values(globals));
+								const evalFn = tools.createEval(types.keys(globals)).apply(null, types.values(globals));
 								return evalFn(command);
 							}, [this.__globals, command]);
 						};
