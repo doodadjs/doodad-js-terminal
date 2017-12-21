@@ -1213,12 +1213,19 @@ exports.add = function add(DD_MODULES) {
 
 					const createInspect = function _createInspect(fn, /*optional*/args) {
 						const self = this;
+
 						return function(/*paramarray*/) {
 							let result = fn.apply(self, args);
+
+							if (types.isCancelable(result)) {
+								result = Promise.resolve(result);
+							};
+
 							if (types.isPromise(result)) {
 								result = result
 									.nodeify(self.__printAsyncResult, self);
 							};
+
 							return result;
 						};
 					};
@@ -1234,24 +1241,40 @@ exports.add = function add(DD_MODULES) {
 				}),
 					
 				__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
-					let ansi;
 					try {
-						ansi = nodeUtilInspect(err || value, {colors: !err});
+						if (!err) {
+							const ansi = nodeUtilInspect(value, {colors: true});
+							this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
+								if (!err) {
+									this.refresh();
+								};
+							})});
+
+							if (types.isCancelable(value)) {
+								value = value.start()
+									.nodeify(this.__printAsyncResult, this);
+
+								const ansi = nodeUtilInspect(value, {colors: true});
+								this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
+									if (!err) {
+										this.refresh();
+									};
+								})});
+							};
+						};
+
 					} catch(ex) {
-						if (ex instanceof types.ScriptInterruptedError) {
+						if (ex.bubble) {
 							throw ex;
 						};
-						err = true;
-						ansi = nodeUtilInspect(ex);
+
+						err = ex;
 					};
+
 					if (err) {
+						const ansi = nodeUtilInspect(err, {colors: false});
+
 						this.consoleWrite('error', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
-							if (!err) {
-								this.refresh();
-							};
-						})});
-					} else {
-						this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
 							if (!err) {
 								this.refresh();
 							};
