@@ -1,5 +1,5 @@
 {
-  "name": "doodad-js-terminal",
+  "name": "@doodad-js/terminal",
   "description": "Terminal (alpha)",
   "version": "0.0.0",
   "files": [

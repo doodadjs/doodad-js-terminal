@@ -1362,7 +1362,7 @@ exports.add = function add(DD_MODULES) {
 			};
 				
 			nodejsTerminal.ADD('loadSettings', function loadSettings(/*optional*/callback) {
-				//return modules.locate('doodad-js-terminal').then(function (location) {
+				//return modules.locate('@doodad-js/terminal').then(function (location) {
 					const path = files.Path.parse(module.filename).set({file: ''}).combine('./res/nodejsTerminal.json', {os: 'linux'});
 					//return config.load(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
 					return config.load(path, { async: true, watch: true, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);

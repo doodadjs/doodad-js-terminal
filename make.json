@@ -27,31 +27,31 @@
 	"stage": "a",
 	"dependencies": [
 		{
-			"name": "doodad-js",
+			"name": "@doodad-js/core",
 			"client": false,
 			"server": true,
 			"browserify": false
 		},
 		{
-			"name": "doodad-js-io",
+			"name": "@doodad-js/io",
 			"client": false,
 			"server": true,
 			"browserify": false
 		},
 		{
-			"name": "doodad-js-safeeval",
+			"name": "@doodad-js/safeeval",
 			"client": false,
 			"server": true,
 			"browserify": false
 		},
 		{
-			"name": "doodad-js-unicode",
+			"name": "@doodad-js/unicode",
 			"client": false,
 			"server": true,
 			"browserify": false
 		},
 		{
-			"name": "doodad-js-locale",
+			"name": "@doodad-js/locale",
 			"client": false,
 			"server": true,
 			"browserify": false
