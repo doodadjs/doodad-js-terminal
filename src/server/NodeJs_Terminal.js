@@ -51,16 +51,16 @@ exports.add = function add(DD_MODULES) {
 				unicode = tools.Unicode,
 				files = tools.Files,
 				safeEval = tools.SafeEval,
-				namespaces = doodad.Namespaces,
-				modules = doodad.Modules,
+				//namespaces = doodad.Namespaces,
+				//modules = doodad.Modules,
 				config = tools.Config,
 				extenders = doodad.Extenders,
-				interfaces = doodad.Interfaces,
+				//interfaces = doodad.Interfaces,
 				mixIns = doodad.MixIns,
 				io = doodad.IO,
 				ioInterfaces = io.Interfaces,
 				ioMixIns = io.MixIns,
-				server = doodad.Server,
+				//server = doodad.Server,
 				nodejs = doodad.NodeJs,
 				nodejsIO = nodejs.IO,
 				nodejsTerminal = nodejs.Terminal,
@@ -236,6 +236,7 @@ exports.add = function add(DD_MODULES) {
 			});
 
 			nodejsTerminalAnsi.ADD('toText', function toText(ansi) {
+				/* eslint no-control-regex: "off" */  // Not a mistake !
 				ansi = types.toString(ansi);
 				ansi = ansi.replace(/(\r\n)|(\n\r)|\r|\n/gm, __Internal__.Settings.NewLine);
 				ansi = ansi.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/gm, '');
@@ -536,14 +537,14 @@ exports.add = function add(DD_MODULES) {
 				consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
 					if (!this.canWrite()) {
 						// Too much log data, are we in a loop ?
-						return;
+						return undefined;
 					};
 					if (this.__consoleWritesCount === this.options.writesLimit) {
 						name = 'info';
 						args = ["... (console writes limit reached)"];
 					};
 					if (this.__consoleWritesCount <= this.options.writesLimit) {
-						const msg = nodeUtilFormat.apply(nodeUtil, args)
+						const msg = nodeUtilFormat(...args);
 							
 						this.__consoleWritesCount++;
 							
@@ -587,6 +588,8 @@ exports.add = function add(DD_MODULES) {
 						const callback = types.get(options, 'callback');
 						callback && callback(null);
 					};
+
+					return undefined;
 				}),
 					
 				setColumns: doodad.PROTECTED(function setColumns() {
@@ -634,7 +637,6 @@ exports.add = function add(DD_MODULES) {
 					};
 					this._super(ev);
 				}),
-
 					
 					
 				// Console hook
@@ -688,7 +690,7 @@ exports.add = function add(DD_MODULES) {
 							{
 								author: "Claude Petit",
 								revision: 0,
-								params:  {
+								params: {
 									command: {
 										type: 'string,function',
 										optional: true,
@@ -715,7 +717,7 @@ exports.add = function add(DD_MODULES) {
 							{
 								author: "Claude Petit",
 								revision: 0,
-								params:  null,
+								params: null,
 								returns: 'object',
 								description: "Returns command names with their description.",
 							}, function() {
@@ -730,7 +732,7 @@ exports.add = function add(DD_MODULES) {
 							{
 								author: "Claude Petit",
 								revision: 0,
-								params:  null,
+								params: null,
 								returns: 'undefined',
 								description: "Quits the application.",
 							}, function() {
@@ -741,7 +743,7 @@ exports.add = function add(DD_MODULES) {
 							{
 								author: "Claude Petit",
 								revision: 0,
-								params:  null,
+								params: null,
 								returns: 'undefined',
 								description: "Quits the application.",
 							}, function() {
@@ -752,7 +754,7 @@ exports.add = function add(DD_MODULES) {
 							{
 								author: "Claude Petit",
 								revision: 0,
-								params:  null,
+								params: null,
 								returns: 'arrayof(string)',
 								description: "Returns commands history.",
 							}, function() {
@@ -952,7 +954,7 @@ exports.add = function add(DD_MODULES) {
 								
 					if (columns > this.__columns) {
 						rows += _shared.Natives.mathFloor(columns / this.__columns);
-						columns = (columns % this.__columns);
+						columns %= this.__columns;
 					};
 								
 					this.write(	
@@ -1133,7 +1135,7 @@ exports.add = function add(DD_MODULES) {
 							};
 							ev.preventDefault();
 						} else if (!data.functionKeys && data.text) {  // Visible chars
-							let chr = unicode.nextChar(this.__command, this.__commandIndex);
+							const chr = unicode.nextChar(this.__command, this.__commandIndex);
 							let end = '';
 							if (chr) {
 								end = this.__command.slice(this.__commandIndex + (this.__insertMode ? 0 : chr.size));
@@ -1191,7 +1193,7 @@ exports.add = function add(DD_MODULES) {
 							{
 								author: "Claude Petit",
 								revision: 0,
-								params:  null,
+								params: null,
 								returns: 'arrayof(string)',
 								description: "Returns a list of global variables.",
 							}, function() {
@@ -1359,6 +1361,7 @@ exports.add = function add(DD_MODULES) {
 					};
 					return data;
 				};
+				return undefined;
 			};
 				
 			nodejsTerminal.ADD('loadSettings', function loadSettings(/*optional*/callback) {
