@@ -285,7 +285,7 @@ exports.add = function add(DD_MODULES) {
 							types._instanceof(attrs.stderr, nodejsIO.TextOutputStream), 
 						"Invalid 'stdin', 'stdout' or 'stderr'."
 					);
-					_shared.setAttributes(this, attrs);
+					types.setAttributes(this, attrs);
 
 					types.getDefault(options, 'writesLimit', 50);
 						
