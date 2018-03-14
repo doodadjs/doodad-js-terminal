@@ -67,7 +67,7 @@
 	],
 	"resources": [
 		{
-			"src": "server/res",
+			"source": "server/res",
 			"namespace": "",
 			"client": false,
 			"server": true,
