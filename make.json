@@ -68,7 +68,6 @@
 	"resources": [
 		{
 			"source": "server/res",
-			"namespace": "",
 			"client": false,
 			"server": true,
 			"browserify": false
