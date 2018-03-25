@@ -41,6 +41,7 @@ exports.add = function add(DD_MODULES) {
 	DD_MODULES['Doodad.NodeJs.Terminal'] = {
 		version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE()*/,
 		namespaces: ['Ansi'],
+		dependencies: ['Doodad.NodeJs.Terminal.Resources'],
 			
 		create: function create(root, /*optional*/_options, _shared) {
 			// TODO: Fix Unicode cursor movements
@@ -49,11 +50,11 @@ exports.add = function add(DD_MODULES) {
 				types = doodad.Types,
 				tools = doodad.Tools,
 				unicode = tools.Unicode,
-				files = tools.Files,
+				//files = tools.Files,
 				safeEval = tools.SafeEval,
 				//namespaces = doodad.Namespaces,
 				//modules = doodad.Modules,
-				config = tools.Config,
+				//config = tools.Config,
 				extenders = doodad.Extenders,
 				//interfaces = doodad.Interfaces,
 				mixIns = doodad.MixIns,
@@ -64,7 +65,8 @@ exports.add = function add(DD_MODULES) {
 				nodejs = doodad.NodeJs,
 				nodejsIO = nodejs.IO,
 				nodejsTerminal = nodejs.Terminal,
-				nodejsTerminalAnsi = nodejsTerminal.Ansi;
+				nodejsTerminalAnsi = nodejsTerminal.Ansi,
+				nodejsTerminalResources = nodejsTerminal.Resources;
 				
 				
 			const __Internal__ = {
@@ -1359,22 +1361,12 @@ exports.add = function add(DD_MODULES) {
 					if (cursorEnd) {
 						__Internal__.Settings.SimpleCommands.CursorEnd = cursorEnd;
 					};
-					return data;
 				};
-				return undefined;
 			};
 				
-			nodejsTerminal.ADD('loadSettings', function loadSettings(/*optional*/callback) {
-				//return modules.locate('@doodad-js/terminal').then(function (location) {
-					const path = files.Path.parse(module.filename).set({file: ''}).combine('./res/nodejsTerminal.json', {os: 'linux'});
-					//return config.load(path, { async: true, watch: true, configPath: location, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
-					return config.load(path, { async: true, watch: true, encoding: 'utf-8' }, [__Internal__.parseSettings, callback]);
-				//});
-			});
 
-				
 			return function init(/*optional*/options) {
-				return nodejsTerminal.loadSettings();
+				return nodejsTerminalResources.getResourcesLoader().load('./server/res/nodejsTerminal.json', {watchCb: __Internal__.parseSettings});
 			};
 		},
 	};
