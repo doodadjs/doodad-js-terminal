@@ -36,9 +36,9 @@ const nodeUtilFormat = nodeUtil.format,
 	nodeUtilInspect = nodeUtil.inspect;
 
 
-exports.add = function add(DD_MODULES) {
-	DD_MODULES = (DD_MODULES || {});
-	DD_MODULES['Doodad.NodeJs.Terminal'] = {
+exports.add = function add(modules) {
+	modules = (modules || {});
+	modules['Doodad.NodeJs.Terminal'] = {
 		version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE()*/,
 		namespaces: ['Ansi'],
 		dependencies: ['Doodad.NodeJs.Terminal.Resources'],
@@ -1370,7 +1370,7 @@ exports.add = function add(DD_MODULES) {
 			};
 		},
 	};
-	return DD_MODULES;
+	return modules;
 };
 
 //! END_MODULE()
