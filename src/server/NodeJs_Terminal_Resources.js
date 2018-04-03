@@ -39,23 +39,21 @@ exports.add = function add(modules) {
 			// Get namespaces
 			//===================================
 					
-            const doodad = root.Doodad,
-                modules = doodad.Modules,
-                resources = doodad.Resources,
+			const doodad = root.Doodad,
+				//modules = doodad.Modules,
+				resources = doodad.Resources,
 				//types = doodad.Types,
-                //tools = doodad.Tools,
-                nodejs = doodad.NodeJs,
+				tools = doodad.Tools,
+				files = tools.Files,
+				nodejs = doodad.NodeJs,
 				nodejsTerminal = nodejs.Terminal,
-                nodejsTerminalResources = nodejsTerminal.Resources;
+				nodejsTerminalResources = nodejsTerminal.Resources;
 
-            return function init(options) {
-                return modules.locate('@doodad-js/terminal')
-                    .then(function(path) {
-                        const rootOpts = root.getOptions();
-                        const basePath = path.set({file: null});
-                        resources.createResourcesLoader(nodejsTerminalResources, (rootOpts.fromSource ? basePath.combine('./src') : basePath.combine('./build')));
-                    });
-            };
+			return function init(options) {
+				const baseLocation = files.Path.parse(module.filename)
+					.set({file: ''});
+				resources.createResourcesLoader(nodejsTerminalResources, baseLocation.moveUp(1));
+			};
 		},
 	};
 	return modules;
