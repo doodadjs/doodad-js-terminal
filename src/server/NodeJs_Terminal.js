@@ -1247,7 +1247,7 @@ exports.add = function add(modules) {
 				__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
 					try {
 						if (!err) {
-							const ansi = nodeUtilInspect(value, {colors: true});
+							const ansi = nodeUtilInspect(value, {colors: true, depth: 1});
 							this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
 								if (!err) {
 									this.refresh();
@@ -1258,7 +1258,7 @@ exports.add = function add(modules) {
 								value = value.start()
 									.nodeify(this.__printAsyncResult, this);
 
-								const ansi = nodeUtilInspect(value, {colors: true});
+								const ansi = nodeUtilInspect(value, {colors: true, depth: 1});
 								this.consoleWrite('log', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
 									if (!err) {
 										this.refresh();
@@ -1276,7 +1276,7 @@ exports.add = function add(modules) {
 					};
 
 					if (err) {
-						const ansi = nodeUtilInspect(err, {colors: false});
+						const ansi = nodeUtilInspect(err, {colors: false, depth: 1});
 
 						this.consoleWrite('error', [ansi], {callback: doodad.AsyncCallback(this, function(err) {
 							if (!err) {
@@ -1322,14 +1322,14 @@ exports.add = function add(modules) {
 					};
 					let text;
 					try {
-						text = nodeUtilInspect(result, {colors: !failed, customInspect: true});
+						text = nodeUtilInspect(result, {colors: !failed, depth: 1, customInspect: true});
 					} catch(ex) {
 						if (ex.bubble) {
 							throw ex;
 						};
 						result = ex;
 						failed = true;
-						text = nodeUtilInspect(ex, {colors: false});
+						text = nodeUtilInspect(ex, {colors: false, depth: 1});
 					};
 					if (failed) {
 						this.write(__Internal__.Settings.Colors.Red[0]);
@@ -1363,7 +1363,7 @@ exports.add = function add(modules) {
 					};
 				};
 			};
-				
+
 
 			return function init(/*optional*/options) {
 				return nodejsTerminalResources.getResourcesLoader().load('./server/res/nodejsTerminal.json', {watchCb: __Internal__.parseSettings});
