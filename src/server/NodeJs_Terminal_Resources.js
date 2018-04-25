@@ -38,7 +38,7 @@ exports.add = function add(modules) {
 			//===================================
 			// Get namespaces
 			//===================================
-					
+
 			const doodad = root.Doodad,
 				//modules = doodad.Modules,
 				resources = doodad.Resources,

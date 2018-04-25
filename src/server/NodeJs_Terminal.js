@@ -42,10 +42,10 @@ exports.add = function add(modules) {
 		version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE()*/,
 		namespaces: ['Ansi'],
 		dependencies: ['Doodad.NodeJs.Terminal.Resources'],
-			
+
 		create: function create(root, /*optional*/_options, _shared) {
 			// TODO: Fix Unicode cursor movements
-				
+
 			const doodad = root.Doodad,
 				types = doodad.Types,
 				tools = doodad.Tools,
@@ -67,8 +67,8 @@ exports.add = function add(modules) {
 				nodejsTerminal = nodejs.Terminal,
 				nodejsTerminalAnsi = nodejsTerminal.Ansi,
 				nodejsTerminalResources = nodejsTerminal.Resources;
-				
-				
+
+
 			const __Internal__ = {
 				oldStdIn: null,
 				oldStdOut: null,
@@ -77,7 +77,7 @@ exports.add = function add(modules) {
 
 				Settings: tools.nullObject(),
 			};
-				
+
 			tools.complete(_shared.Natives, {
 				mathFloor: global.Math.floor,
 				mathMin: global.Math.min,
@@ -85,7 +85,7 @@ exports.add = function add(modules) {
 				mathAbs: global.Math.abs,
 				mathSign: global.Math.sign,
 			});
-				
+
 			nodejsTerminalAnsi.ADD('computeKeyboard', function computeKeyboard(keyboard) {
 				const computed = {};
 				tools.forEach(keyboard, function(sequence, name) {
@@ -151,13 +151,13 @@ exports.add = function add(modules) {
 				}, {});
 				return computed;
 			});
-				
+
 			nodejsTerminalAnsi.ADD('parseKeys', function parseKeys(ansi, /*optional*/pos, /*optional*/maxKeysCount) {
 				ansi = types.toString(ansi).replace(/(\r\n)|(\n\r)|\r|\n/gm, __Internal__.Settings.EnterKey);
-					
+
 				pos = (pos || 0);
 				maxKeysCount = (maxKeysCount || Infinity);
-					
+
 				const keys = [];
 
 				const keyboard = __Internal__.Settings.Keyboard;
@@ -165,12 +165,12 @@ exports.add = function add(modules) {
 
 				while ((pos < ansi.length) && (keys.length < maxKeysCount)) {
 					const key = {};
-						
+
 					let size = 1;
 					let found = false;
 					scanKeyboard: for (let k = 0; k < entries.length; k++) {
 						let name = entries[k];
-							
+
 						const regEx = keyboard[name];
 						regEx.lastIndex = 0;
 						const match = regEx.exec(ansi.slice(pos));
@@ -226,14 +226,14 @@ exports.add = function add(modules) {
 							};
 						};
 					};
-						
+
 					key.ansi = ansi.slice(pos, pos + size);
-						
+
 					keys.push(key);
-						
+
 					pos += size;
 				};
-					
+
 				return keys;
 			});
 
@@ -244,7 +244,7 @@ exports.add = function add(modules) {
 				ansi = ansi.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/gm, '');
 				return ansi;
 			});
-				
+
 			nodejsTerminalAnsi.REGISTER(io.Stream.$extend(
 								ioMixIns.KeyboardInput,
 								ioMixIns.TextOutput,
@@ -253,12 +253,12 @@ exports.add = function add(modules) {
 			{
 				$TYPE_NAME: 'Terminal',
 				$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('Terminal')), true) */,
-					
+
 				number: doodad.PUBLIC(doodad.READ_ONLY(null)),
 				stdin: doodad.PUBLIC(doodad.READ_ONLY(null)),
 				stdout: doodad.PUBLIC(doodad.READ_ONLY(null)),
 				stderr: doodad.PUBLIC(doodad.READ_ONLY(null)),
-					
+
 				__interrogate: doodad.PROTECTED(false),
 				__interrogateTimeoutId: doodad.PROTECTED(null),
 				__interrogateCallback: doodad.PROTECTED(null),
@@ -266,13 +266,13 @@ exports.add = function add(modules) {
 				__column: doodad.PROTECTED(0),
 				__row: doodad.PROTECTED(0),
 				__columns: doodad.PROTECTED(0),
-					
+
 				__savedColumn: doodad.PROTECTED(0),
 				__savedRow: doodad.PROTECTED(0),
-					
+
 				__consoleWritesCount: doodad.PROTECTED(0),
 				__consoleWritesIntervalId: doodad.PROTECTED(null),
-					
+
 				create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 					root.DD_ASSERT && root.DD_ASSERT(types.isInteger(number) && (number >= 0) && (number < 10), "Invalid console number.");
 					const attrs = {
@@ -282,15 +282,15 @@ exports.add = function add(modules) {
 						stderr: types.get(options, 'stderr', io.stderr),
 					};
 					root.DD_ASSERT && root.DD_ASSERT(
-							types._instanceof(attrs.stdin, nodejsIO.TextInputStream) && 
-							types._instanceof(attrs.stdout, nodejsIO.TextOutputStream) && 
-							types._instanceof(attrs.stderr, nodejsIO.TextOutputStream), 
+							types._instanceof(attrs.stdin, nodejsIO.TextInputStream) &&
+							types._instanceof(attrs.stdout, nodejsIO.TextOutputStream) &&
+							types._instanceof(attrs.stderr, nodejsIO.TextOutputStream),
 						"Invalid 'stdin', 'stdout' or 'stderr'."
 					);
 					types.setAttributes(this, attrs);
 
 					types.getDefault(options, 'writesLimit', 50);
-						
+
 					this._super(options);
 
 					this.onStreamResize.attach(this.stdout.stream);
@@ -306,11 +306,11 @@ exports.add = function add(modules) {
 					};
 					this._super();
 				}),
-					
+
 				beforeQuit: doodad.PROTECTED(function quit() {
 					this.writeLine();
 				}),
-					
+
 				__onStdInListen: doodad.PROTECTED(function onStdInListen(ev) {
 					function listenInternal() {
 						__Internal__.currentTerminal = this;
@@ -322,10 +322,10 @@ exports.add = function add(modules) {
 							stdout: this,
 							stderr: this,
 						});
-							
+
 						this.onListen(ev);
 					};
-						
+
 					//const os = tools.getOS();
 					//if (os.type === 'windows') {
 					//	// <PRB> Windows doesn't not respond.
@@ -341,7 +341,7 @@ exports.add = function add(modules) {
 					//	}));
 					//};
 				}),
-					
+
 				__onStdInStopListening: doodad.PROTECTED(function(ev) {
 					this.stdin.onReady.detach(this, this.__onStdInReady);
 
@@ -354,7 +354,7 @@ exports.add = function add(modules) {
 					__Internal__.oldStdOut = null;
 					__Internal__.oldStdErr = null;
 				}),
-							
+
 				__onStdInReady: doodad.PROTECTED(function onStdInReady(ev) {
 					ev.preventDefault();
 
@@ -371,7 +371,7 @@ exports.add = function add(modules) {
 					} else {
 						const keys = nodejsTerminalAnsi.parseKeys(ansi),
 							len = keys.length;
-							
+
 						for (let i = 0; i < len; i++) {
 							const key = keys[i];
 							if (!types.get(this.options, 'ignoreCtrlC', false) && (key.functionKeys === io.KeyboardFunctionKeys.Ctrl) && (key.text === 'C')) { // CTRL+C
@@ -384,7 +384,7 @@ exports.add = function add(modules) {
 						};
 					};
 				}),
-					
+
 				cancelInterrogate: doodad.PUBLIC(function cancelInterrogate(/*optional*/reason) {
 					if (!this.__interrogate) {
 						throw new types.NotAvailable();
@@ -395,7 +395,7 @@ exports.add = function add(modules) {
 					this.__interrogateCallback(reason || new types.CanceledError());
 					this.__interrogateCallback = null;
 				}),
-					
+
 				interrogateTerminal: doodad.PUBLIC(function interrogateTerminal(requestCommand, callback, /*optional*/timeout) {
 					if (this.__interrogate) {
 						throw new types.NotAvailable();
@@ -405,7 +405,7 @@ exports.add = function add(modules) {
 					this.write(requestCommand);
 					this.__interrogate = true;
 				}),
-					
+
 				isListening: doodad.REPLACE(function isListening() {
 					return !!this.stdin && this.stdin.isListening();
 				}),
@@ -424,10 +424,10 @@ exports.add = function add(modules) {
 						this.stdin.stopListening();
 					};
 				}),
-					
+
 				saveCursor: doodad.PUBLIC(function saveCursor() {
 					this.write(__Internal__.Settings.SimpleCommands.SaveCursor);
-						
+
 					this.__savedColumn = this.__column;
 					this.__savedRow = this.__row;
 				}),
@@ -435,7 +435,7 @@ exports.add = function add(modules) {
 				restoreCursor: doodad.PUBLIC(function restoreCursor() {
 					this.__column = _shared.Natives.mathMin(this.__savedColumn, this.__columns);
 					this.__row = this.__savedRow;
-						
+
 					this.write(__Internal__.Settings.SimpleCommands.RestoreCursor);
 				}),
 
@@ -443,9 +443,9 @@ exports.add = function add(modules) {
 					this.__column = 1;
 					this.__row = 1;
 				}),
-					
+
 				refresh: doodad.PUBLIC(doodad.METHOD()),
-					
+
 				reset: doodad.OVERRIDE(function reset() {
 					this._super();
 
@@ -478,19 +478,19 @@ exports.add = function add(modules) {
 
 				clear: doodad.OVERRIDE(function clear() {
 					this._super();
-						
+
 					this.resetPosition();
 				}),
 
 				calculateTextDims: doodad.PROTECTED(function calculateTextDims(text, /*optional*/options) {
 					text = nodejsTerminalAnsi.toText(text);
-						
+
 					const lines = text.split(__Internal__.Settings.NewLine),
 						linesLen = lines.length;
-							
+
 					let columns = 0,
 						rows = 0;
-							
+
 					for (let i = 0; i < linesLen; i++) {
 						const line = lines[i],
 							lineLen = unicode.charsCount(line);
@@ -499,7 +499,7 @@ exports.add = function add(modules) {
 							columns = (lineLen % this.__columns);
 						};
 					};
-						
+
 					return {
 						rows: rows,
 						columns: columns,
@@ -510,15 +510,15 @@ exports.add = function add(modules) {
 					text = nodejsTerminalAnsi.toText(text);
 
 					const dims = this.calculateTextDims(text, options);
-						
+
 					this.__row += dims.rows;
 					this.__column += dims.columns;
-						
+
 					if (this.__column > this.__columns) {
 						this.__row += _shared.Natives.mathFloor(this.__column / this.__columns);
 						this.__column = (this.__column % this.__columns);
 					};
-						
+
 					this.write(text, options);
 				}),
 
@@ -535,7 +535,7 @@ exports.add = function add(modules) {
 					};
 					data.consume();
 				}),
-					
+
 				consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
 					if (!this.canWrite()) {
 						// Too much log data, are we in a loop ?
@@ -547,17 +547,17 @@ exports.add = function add(modules) {
 					};
 					if (this.__consoleWritesCount <= this.options.writesLimit) {
 						const msg = nodeUtilFormat(...args);
-							
+
 						this.__consoleWritesCount++;
-							
+
 						let ansi = '';
-							
+
 						ansi +=
 							(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X times
-							__Internal__.Settings.SimpleCommands.EraseLine + 
-							__Internal__.Settings.SimpleCommands.EraseBelow + 
+							__Internal__.Settings.SimpleCommands.EraseLine +
+							__Internal__.Settings.SimpleCommands.EraseBelow +
 							__Internal__.Settings.SimpleCommands.CursorHome;
-								
+
 						options = tools.extend({}, this.options, options);
 						const color = __Internal__.Settings.Colors[types.get(options, name + 'Color', null)];
 						if (color) {
@@ -581,11 +581,11 @@ exports.add = function add(modules) {
 						if (bgColor) {
 							ansi += __Internal__.Settings.Colors.Normal[1];
 						};
-							
+
 						this.write(ansi, options);
-							
+
 						return msg;
-							
+
 					} else {
 						const callback = types.get(options, 'callback');
 						callback && callback(null);
@@ -593,7 +593,7 @@ exports.add = function add(modules) {
 
 					return undefined;
 				}),
-					
+
 				setColumns: doodad.PROTECTED(function setColumns() {
 					const newColumns = this.stdout.stream.columns;
 					this.__columns = newColumns;
@@ -612,7 +612,7 @@ exports.add = function add(modules) {
 						this.refresh();
 					};
 				}),
-					
+
 				onReady: doodad.OVERRIDE(function onReady(ev) {
 					if (!ev.prevent) {
 						const data = ev.data.raw;
@@ -639,8 +639,8 @@ exports.add = function add(modules) {
 					};
 					this._super(ev);
 				}),
-					
-					
+
+
 				// Console hook
 				info: doodad.OVERRIDE(ioInterfaces.IConsole, function info(raw, /*optional*/options) {
 					this[doodad.HostSymbol].consoleWrite('info', [raw], options);
@@ -660,13 +660,13 @@ exports.add = function add(modules) {
 			{
 				$TYPE_NAME: 'CommandPrompt',
 				$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('CommandPrompt')), true) */,
-					
+
 				// TEST OVERRIDING A NODE_EVENT
 				//onStreamResize: doodad.OVERRIDE(function onStreamResize(context) {
 				//	this._super(context);
 				//	types.DEBUGGER();
 				//}),
-					
+
 				__command: doodad.PROTECTED(''),
 				__commandLen: doodad.PROTECTED(0),
 				__commandIndex: doodad.PROTECTED(0),
@@ -675,16 +675,16 @@ exports.add = function add(modules) {
 				__homeRow: doodad.PROTECTED(1),
 				__commandsHistory: doodad.PROTECTED(null),
 				__commandsHistoryIndex: doodad.PROTECTED(-1),
-					
+
 				__savedHomeColumn: doodad.PROTECTED(1),
 				__savedHomeRow: doodad.PROTECTED(1),
 				__savedCommandIndex: doodad.PROTECTED(0),
-					
+
 				__questionMode: doodad.PROTECTED(false),
 				__question: doodad.PROTECTED(null),
 				__questionCallback: doodad.PROTECTED(null),
 				__questionOptions: doodad.PROTECTED(null),
-					
+
 				__defaultHelp: doodad.PROTECTED( "Help: Type 'quit', 'exit' or 'history'" ),
 
 				__commands: doodad.PROTECTED(doodad.ATTRIBUTE({
@@ -763,7 +763,7 @@ exports.add = function add(modules) {
 								return types.items(types.clone(this.__commandsHistory).reverse());
 							}),
 				}, extenders.ExtendObject)),
-					
+
 				setOptions: doodad.OVERRIDE(function setOptions(options) {
 					types.getDefault(options, 'historySize', types.getIn(this.options, 'historySize', 50));
 
@@ -790,17 +790,17 @@ exports.add = function add(modules) {
 					);
 					if (this.__insertMode) {
 						this.write(
-							((chr && !unicode.isSpace(chr.chr)) ? 
-								__Internal__.Settings.Styles.BoldBlinkReverse + chr.chr + __Internal__.Settings.Styles.None 
-								: 
+							((chr && !unicode.isSpace(chr.chr)) ?
+								__Internal__.Settings.Styles.BoldBlinkReverse + chr.chr + __Internal__.Settings.Styles.None
+								:
 								__Internal__.Settings.SimpleCommands.CursorBlock
 							)
 						);
 					} else {
 						this.write(
-							((chr && !unicode.isSpace(chr.chr)) ? 
-								__Internal__.Settings.Styles.BoldBlink + chr.chr + __Internal__.Settings.Styles.None 
-								: 
+							((chr && !unicode.isSpace(chr.chr)) ?
+								__Internal__.Settings.Styles.BoldBlink + chr.chr + __Internal__.Settings.Styles.None
+								:
 								__Internal__.Settings.SimpleCommands.CursorUnderline
 							)
 						);
@@ -817,25 +817,25 @@ exports.add = function add(modules) {
 					//};
 	*/
 				}),
-					
+
 				eraseCursor: doodad.PROTECTED(function eraseCursor() {
 					// FIXME: Cursor at end of line
 /*
 					const chr = unicode.nextChar(this.__command, this.__commandIndex);
 					this.write(
-						__Internal__.Settings.SimpleCommands.SaveCursor + 
-						(chr ? chr.chr : __Internal__.Settings.SimpleCommands.Erase) + 
+						__Internal__.Settings.SimpleCommands.SaveCursor +
+						(chr ? chr.chr : __Internal__.Settings.SimpleCommands.Erase) +
 						__Internal__.Settings.SimpleCommands.RestoreCursor
 					);
 */
 				}),
-					
+
 				writeLine: doodad.OVERRIDE(function writeLine(text, /*optional*/options) {
 					this.eraseCursor();
-						
+
 					this._super(text, options);
 				}),
-					
+
 				printPrompt: doodad.PROTECTED(function printPrompt() {
 					this.resetPosition();
 					this.write(
@@ -850,19 +850,19 @@ exports.add = function add(modules) {
 					this.__homeColumn = this.__column;
 					this.__homeRow = this.__row;
 				}),
-					
+
 				runCommand: doodad.PROTECTED(doodad.MUST_OVERRIDE()), //function runCommand(command, /*optional*/options)
-					
+
 				listen: doodad.OVERRIDE(function listen(/*optional*/options) {
 					this._super(options);
-						
+
 					this.printPrompt();
 					this.printCursor();
 				}),
 
 				saveCursor: doodad.OVERRIDE(function saveCursor() {
 					this._super();
-						
+
 					this.__savedHomeColumn = this.__homeColumn;
 					this.__savedHomeRow = this.__homeRow;
 					this.__savedCommandIndex = this.__commandIndex;
@@ -876,12 +876,12 @@ exports.add = function add(modules) {
 				}),
 				resetPosition: doodad.OVERRIDE(function resetPosition() {
 					this._super();
-						
+
 					this.__homeColumn = 1;
 					this.__homeRow = 1;
 					this.__commandIndex = 0;
 				}),
-					
+
 				reset: doodad.OVERRIDE(function reset() {
 					this._super();
 
@@ -900,18 +900,18 @@ exports.add = function add(modules) {
 					this.__command = '';
 					this.__commandLen = 0;
 				}),
-					
+
 				refresh: doodad.OVERRIDE(function refresh() {
 					this._super();
-						
+
 					this.printPrompt();
 					this.printCursor();
-						
+
 					if (this.__command) {
 						this.writeText(this.__command);
 						this.__commandIndex = this.__command.length;
 					};
-						
+
 				}),
 
 				ask: doodad.PUBLIC(function ask(question, callback, /*optional*/options) {
@@ -945,21 +945,21 @@ exports.add = function add(modules) {
 						this.__commandsHistoryIndex = -1;
 					};
 				}),
-					
+
 				__moveToEnd: doodad.PROTECTED(function __moveToEnd() {
 					this.eraseCursor();
 
 					const dims = this.calculateTextDims(this.__command);
-								
+
 					let rows = this.__homeRow + dims.rows;
 					let columns = this.__homeColumn + dims.columns;
-								
+
 					if (columns > this.__columns) {
 						rows += _shared.Natives.mathFloor(columns / this.__columns);
 						columns %= this.__columns;
 					};
-								
-					this.write(	
+
+					this.write(
 						((this.__row > 0) && (rows > this.__row) ? tools.format("\u001B[~0~B", [rows - this.__row]) : '') + // CursorDown X Times
 						__Internal__.Settings.SimpleCommands.CursorHome +
 						((columns > 1) ? tools.format("\u001B[~0~C", [columns - 1]) : '') // CursorRight X Times
@@ -1020,27 +1020,27 @@ exports.add = function add(modules) {
 							this.eraseCursor();
 
 							const moveUpCount = this.__row - this.__homeRow;
-							this.write(	
+							this.write(
 								(moveUpCount > 0 ? tools.format("\u001B[~0~A", [moveUpCount]) : '') + // CursorUp X Times
 								__Internal__.Settings.SimpleCommands.CursorHome +
 								(this.__homeColumn > 1 ? tools.format("\u001B[~0~C", [this.__homeColumn - 1]) : '') // CursorRight X Times
 							);
-								
+
 							this.__column = this.__homeColumn;
 							this.__row = this.__homeRow;
 							this.__commandIndex = 0;
-								
+
 							this.printCursor();
 
 							ev.preventDefault();
-								
+
 						} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.End)) {  // End
 							this.__moveToEnd();
-								
+
 							this.printCursor();
 
 							ev.preventDefault();
-								
+
 						} else if (!data.functionKeys && (data.scanCode === io.KeyboardScanCodes.LeftArrow)) {  // Left Arrow
 							const chr = unicode.prevChar(this.__command, this.__commandIndex);
 							if (chr) {
@@ -1082,7 +1082,7 @@ exports.add = function add(modules) {
 									if ((this.__commandsHistoryIndex < 0) && (this.__command)) {
 										this.addCommandHistory(this.__command, true);
 									};
-									this.write(	
+									this.write(
 										(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
 										__Internal__.Settings.SimpleCommands.EraseBelow
 									);
@@ -1102,7 +1102,7 @@ exports.add = function add(modules) {
 								if ((this.__commandsHistoryIndex < 0) && (this.__command)) {
 									this.addCommandHistory(this.__command, true);
 								};
-								this.write(	
+								this.write(
 									(this.__row > 1 ? tools.format("\u001B[~0~A", [this.__row - 1]) : '') + // CursorUp X Times
 									__Internal__.Settings.SimpleCommands.EraseBelow
 								);
@@ -1142,7 +1142,7 @@ exports.add = function add(modules) {
 							if (chr) {
 								end = this.__command.slice(this.__commandIndex + (this.__insertMode ? 0 : chr.size));
 							};
-								
+
 							const len = unicode.charsCount(data.text);
 
 							if ((this.__commandLen + len) <= types.get(this.options, 'maxCommandLength', 1024)) {
@@ -1152,9 +1152,9 @@ exports.add = function add(modules) {
 								this.writeText(data.text);
 								if (end) {
 									this.saveCursor();
-										
+
 									this.writeText(end);
-										
+
 									// <PRB> Since ?????, the cursor behaves weird, both on Windows and Linux
 									let fixCursor = false;
 									if (__Internal__.osType === 'windows') {
@@ -1164,14 +1164,14 @@ exports.add = function add(modules) {
 									};
 
 									this.restoreCursor();
-										
+
 									if (fixCursor) {
 										this.write(__Internal__.Settings.SimpleCommands.CursorUp);
 									};
 								};
 								this.printCursor();
 							};
-								
+
 							ev.preventDefault();
 						};
 					};
@@ -1185,11 +1185,11 @@ exports.add = function add(modules) {
 			{
 				$TYPE_NAME: 'Javascript',
 				$TYPE_UUID: '' /*! INJECT('+' + TO_SOURCE(UUID('Javascript')), true) */,
-					
+
 				__globals: doodad.PROTECTED(  null  ),
 
 				__defaultHelp: doodad.PROTECTED( "Help: Type Javascript expressions, or type 'commands' to get a list of available commands." ),
-					
+
 				__commands: {
 					globals: root.DD_DOC(
 							{
@@ -1202,13 +1202,13 @@ exports.add = function add(modules) {
 								return types.keys(this.__globals);
 							}),
 				},
-					
-					
+
+
 				create: doodad.OVERRIDE(function create(number, /*optional*/options) {
 					const Promise = types.getPromise();
 
 					this._super(number, options);
-						
+
 					const locals = types.get(options, 'locals', {root: root});
 
 					const commands = tools.extend({}, this.__commands, types.get(options, 'commands'));
@@ -1240,10 +1240,10 @@ exports.add = function add(modules) {
 						fn[inspectSymbol] = createInspect.call(this, fn);
 						commands[name] = fn;
 					}, this);
-						
+
 					this.__globals = tools.extend({}, locals, commands);
 				}),
-					
+
 				__printAsyncResult: doodad.PROTECTED(function printAsyncResult(err, value) {
 					try {
 						if (!err) {
@@ -1285,7 +1285,7 @@ exports.add = function add(modules) {
 						})});
 					};
 				}),
-					
+
 				runCommand: doodad.OVERRIDE(function runCommand(command, /*optional*/options) {
 					const Promise = types.getPromise();
 					command = tools.trim(command);
@@ -1345,9 +1345,9 @@ exports.add = function add(modules) {
 							.nodeify(this.__printAsyncResult, this);
 					};
 				}),
-					
+
 			}));
-				
+
 			__Internal__.parseSettings = function parseSettings(err, data) {
 				if (!err) {
 					data = data.nodejsTerminal;
