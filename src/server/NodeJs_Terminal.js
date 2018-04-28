@@ -330,16 +330,16 @@ exports.add = function add(modules) {
 						//if (os.type === 'windows') {
 						//	// <PRB> Windows doesn't not respond.
 						tools.callAsync(listenInternal, -1, this);
-					//} else {
-					//	this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, doodad.Callback(this, function(err, response) {
-					//		if (err) {
-					//			console.warn("Terminal can't be identified.");
-					//		} else if (response !== '\u001B[?1;2c') {
-					//			console.warn("This program is optimized for a VT100 terminal with Advanced Video Option.");
-					//		};
-					//		listenInternal.call(this);
-					//	}));
-					//};
+						//} else {
+						//	this.interrogateTerminal(__Internal__.Settings.SimpleCommands.RequestDeviceAttributes, doodad.Callback(this, function(err, response) {
+						//		if (err) {
+						//			console.warn("Terminal can't be identified.");
+						//		} else if (response !== '\u001B[?1;2c') {
+						//			console.warn("This program is optimized for a VT100 terminal with Advanced Video Option.");
+						//		};
+						//		listenInternal.call(this);
+						//	}));
+						//};
 					}),
 
 					__onStdInStopListening: doodad.PROTECTED(function(ev) {
@@ -538,7 +538,7 @@ exports.add = function add(modules) {
 
 					consoleWrite: doodad.PUBLIC(function consoleWrite(name, args, /*optional*/options) {
 						if (!this.canWrite()) {
-						// Too much log data, are we in a loop ?
+							// Too much log data, are we in a loop ?
 							return undefined;
 						};
 						if (this.__consoleWritesCount === this.options.writesLimit) {
@@ -781,53 +781,53 @@ exports.add = function add(modules) {
 					}),
 
 					printCursor: doodad.PROTECTED(function printCursor() {
-					// FIXME: Cursor at end of line
+						// FIXME: Cursor at end of line
 						/*
-					const chr = unicode.nextChar(this.__command, this.__commandIndex);
-					this.write(
-						__Internal__.Settings.SimpleCommands.HideCursor +
-						__Internal__.Settings.SimpleCommands.SaveCursor
-					);
-					if (this.__insertMode) {
-						this.write(
-							((chr && !unicode.isSpace(chr.chr)) ?
-								__Internal__.Settings.Styles.BoldBlinkReverse + chr.chr + __Internal__.Settings.Styles.None
-								:
-								__Internal__.Settings.SimpleCommands.CursorBlock
-							)
-						);
-					} else {
-						this.write(
-							((chr && !unicode.isSpace(chr.chr)) ?
-								__Internal__.Settings.Styles.BoldBlink + chr.chr + __Internal__.Settings.Styles.None
-								:
-								__Internal__.Settings.SimpleCommands.CursorUnderline
-							)
-						);
-					};
-					this.write(
-						__Internal__.Settings.SimpleCommands.RestoreCursor
-					);
-					//if (__Internal__.osType === 'windows') {
-					//	if (this.__column === this.__columns) {
-					//		this.write(__Internal__.Settings.SimpleCommands.CursorUp);
-					//	};
-					//} else {
-					//		??????
-					//};
-	*/
+							const chr = unicode.nextChar(this.__command, this.__commandIndex);
+							this.write(
+								__Internal__.Settings.SimpleCommands.HideCursor +
+								__Internal__.Settings.SimpleCommands.SaveCursor
+							);
+							if (this.__insertMode) {
+								this.write(
+									((chr && !unicode.isSpace(chr.chr)) ?
+										__Internal__.Settings.Styles.BoldBlinkReverse + chr.chr + __Internal__.Settings.Styles.None
+										:
+										__Internal__.Settings.SimpleCommands.CursorBlock
+									)
+								);
+							} else {
+								this.write(
+									((chr && !unicode.isSpace(chr.chr)) ?
+										__Internal__.Settings.Styles.BoldBlink + chr.chr + __Internal__.Settings.Styles.None
+										:
+										__Internal__.Settings.SimpleCommands.CursorUnderline
+									)
+								);
+							};
+							this.write(
+								__Internal__.Settings.SimpleCommands.RestoreCursor
+							);
+							//if (__Internal__.osType === 'windows') {
+							//	if (this.__column === this.__columns) {
+							//		this.write(__Internal__.Settings.SimpleCommands.CursorUp);
+							//	};
+							//} else {
+							//		??????
+							//};
+						*/
 					}),
 
 					eraseCursor: doodad.PROTECTED(function eraseCursor() {
-					// FIXME: Cursor at end of line
+						// FIXME: Cursor at end of line
 						/*
-					const chr = unicode.nextChar(this.__command, this.__commandIndex);
-					this.write(
-						__Internal__.Settings.SimpleCommands.SaveCursor +
-						(chr ? chr.chr : __Internal__.Settings.SimpleCommands.Erase) +
-						__Internal__.Settings.SimpleCommands.RestoreCursor
-					);
-*/
+							const chr = unicode.nextChar(this.__command, this.__commandIndex);
+							this.write(
+								__Internal__.Settings.SimpleCommands.SaveCursor +
+								(chr ? chr.chr : __Internal__.Settings.SimpleCommands.Erase) +
+								__Internal__.Settings.SimpleCommands.RestoreCursor
+							);
+						*/
 					}),
 
 					writeLine: doodad.OVERRIDE(function writeLine(text, /*optional*/options) {
@@ -971,8 +971,8 @@ exports.add = function add(modules) {
 					}),
 
 					onReady: doodad.OVERRIDE(function onReady(ev) {
-					// TODO: Auto-completion
-					// TODO: Hints
+						// TODO: Auto-completion
+						// TODO: Hints
 						let callSuper = true;
 						if (!ev.prevent) {
 							const data = ev.data.raw;
