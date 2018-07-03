@@ -702,17 +702,24 @@ exports.add = function add(modules) {
 								returns: 'string,object',
 								description: "Returns help.",
 							}, function(/*optional*/command) {
+								const inspectSymbol = nodejs.getCustomInspectSymbol();
+								let result;
 								if (types.isNothing(command)) {
-									return types.get(this.options, 'help', this.__defaultHelp);
+									result = types.get(this.options, 'help', this.__defaultHelp);
 								} else if (types.isString(command)) {
 									const fn = this.__commands[command];
-									if (fn) {
-										return root.GET_DD_DOC(fn);
-									} else {
-										return new types.Error("Unknown command '~0~'.", [command]);
+									if (!fn) {
+										throw new types.Error("Unknown command '~0~'.", [command]);
 									};
+									result = nodeUtilInspect(root.GET_DD_DOC(fn), {colors: true, depth: 5});
 								} else {
-									return root.GET_DD_DOC(command[_shared.OriginalValueSymbol] || command);
+									result = nodeUtilInspect(root.GET_DD_DOC(command[_shared.OriginalValueSymbol] || command), {colors: true, depth: 5});
+								};
+								return {
+									result,
+									[inspectSymbol]() {
+										return this.result;
+									},
 								};
 							}),
 						commands: root.DD_DOC(
