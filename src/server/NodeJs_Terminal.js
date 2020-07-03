@@ -41,7 +41,7 @@ exports.add = function add(modules) {
 	modules['Doodad.NodeJs.Terminal'] = {
 		version: /*! REPLACE_BY(TO_SOURCE(VERSION(MANIFEST("name")))) */ null /*! END_REPLACE()*/,
 		namespaces: ['Ansi'],
-		dependencies: ['Doodad.NodeJs.Terminal.Resources'],
+		//dependencies: [],
 
 		create: function create(root, /*optional*/_options, _shared) {
 			// TODO: Fix Unicode cursor movements
@@ -66,7 +66,7 @@ exports.add = function add(modules) {
 				nodejsIO = nodejs.IO,
 				nodejsTerminal = nodejs.Terminal,
 				nodejsTerminalAnsi = nodejsTerminal.Ansi,
-				nodejsTerminalResources = nodejsTerminal.Resources;
+				resources = doodad.Resources;
 
 
 			const __Internal__ = {
@@ -1356,24 +1356,25 @@ exports.add = function add(modules) {
 				}));
 
 			__Internal__.parseSettings = function parseSettings(err, data) {
-				if (!err) {
-					data = data.nodejsTerminal;
-					__Internal__.Settings.Keyboard = nodejsTerminalAnsi.computeKeyboard(data.keyboard);
-					__Internal__.Settings.NewLine = data.newLine;
-					__Internal__.Settings.Colors = data.colors;
-					__Internal__.Settings.Styles = data.styles;
-					__Internal__.Settings.EnterKey = data.enterKey;
-					const cursorEnd = __Internal__.Settings.SimpleCommands && __Internal__.Settings.SimpleCommands.CursorEnd;
-					__Internal__.Settings.SimpleCommands = data.simpleCommands;
-					if (cursorEnd) {
-						__Internal__.Settings.SimpleCommands.CursorEnd = cursorEnd;
-					};
+				if (err) {
+					throw err;
+				};
+				data = data.nodejsTerminal;
+				__Internal__.Settings.Keyboard = nodejsTerminalAnsi.computeKeyboard(data.keyboard);
+				__Internal__.Settings.NewLine = data.newLine;
+				__Internal__.Settings.Colors = data.colors;
+				__Internal__.Settings.Styles = data.styles;
+				__Internal__.Settings.EnterKey = data.enterKey;
+				const cursorEnd = __Internal__.Settings.SimpleCommands && __Internal__.Settings.SimpleCommands.CursorEnd;
+				__Internal__.Settings.SimpleCommands = data.simpleCommands;
+				if (cursorEnd) {
+					__Internal__.Settings.SimpleCommands.CursorEnd = cursorEnd;
 				};
 			};
 
 
 			return function init(/*optional*/options) {
-				return nodejsTerminalResources.getResourcesLoader().load('./server/res/nodejsTerminal.json', {watchCb: __Internal__.parseSettings});
+				return resources.load('./server/res/nodejsTerminal.json', {watchCb: __Internal__.parseSettings, module: '@doodad-js/terminal'});
 			};
 		},
 	};

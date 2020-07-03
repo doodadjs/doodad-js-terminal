@@ -64,12 +64,6 @@
 			client: false,
 			server: true,
 			browserify: false
-		},
-		{
-			src: "server/NodeJs_Terminal_Resources.js",
-			client: false,
-			server: true,
-			browserify: false
 		}
 	],
 	resources: [
