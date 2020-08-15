@@ -516,7 +516,7 @@ exports.add = function add(modules) {
 
 						if (this.__column > this.__columns) {
 							this.__row += _shared.Natives.mathFloor(this.__column / this.__columns);
-							this.__column = (this.__column % this.__columns);
+							this.__column %= this.__columns;
 						};
 
 						this.write(text, options);
